@@ -81,7 +81,14 @@ interface ActiveOrgResult {
 }
 
 export function useActiveOrganization(): ActiveOrgResult {
-  const { user, isLoading, isAuthenticated, checkAuth } = useAuthStore();
+  const {
+    user,
+    organizations,
+    activeOrgId,
+    isLoading,
+    isAuthenticated,
+    checkAuth,
+  } = useAuthStore();
 
   // Trigger auth check on mount if needed
   useEffect(() => {
@@ -94,10 +101,14 @@ export function useActiveOrganization(): ActiveOrgResult {
     return { data: null, isPending: isLoading };
   }
 
+  const activeOrg =
+    organizations.find((org) => org.id === activeOrgId) ??
+    organizations.find((org) => org.id === user.org_id);
+
   return {
     data: {
-      id: user.org_id,
-      name: user.org_name,
+      id: activeOrg?.id ?? user.org_id,
+      name: activeOrg?.name ?? user.org_name,
     },
     isPending: false,
   };
@@ -109,7 +120,8 @@ interface ListOrgsResult {
 }
 
 export function useListOrganizations(): ListOrgsResult {
-  const { user, isLoading, isAuthenticated, checkAuth } = useAuthStore();
+  const { user, organizations, isLoading, isAuthenticated, checkAuth } =
+    useAuthStore();
 
   // Trigger auth check on mount if needed
   useEffect(() => {
@@ -122,14 +134,21 @@ export function useListOrganizations(): ListOrgsResult {
     return { data: null, isPending: isLoading };
   }
 
-  // Return single org (multi-org support can be added later)
+  const normalized =
+    organizations.length > 0
+      ? organizations.map((org) => ({
+          id: org.id,
+          name: org.name,
+        }))
+      : [
+          {
+            id: user.org_id,
+            name: user.org_name,
+          },
+        ];
+
   return {
-    data: [
-      {
-        id: user.org_id,
-        name: user.org_name,
-      },
-    ],
+    data: normalized,
     isPending: false,
   };
 }
@@ -267,10 +286,48 @@ export const authClient = {
    * Reset password
    */
   async resetPassword(
-    _email: string
-  ): Promise<{ error?: { message: string } }> {
-    // TODO: Implement when Python backend supports password reset
-    return { error: { message: "Password reset not yet implemented" } };
+    email: string
+  ): Promise<{
+    data?: { message: string; resetToken?: string | null; resetLink?: string | null };
+    error?: { message: string };
+  }> {
+    try {
+      const response = await authAPI.requestPasswordReset(email);
+      return {
+        data: {
+          message: response.message,
+          resetToken: response.reset_token ?? null,
+          resetLink: response.reset_link ?? null,
+        },
+      };
+    } catch (error) {
+      return {
+        error: {
+          message:
+            error instanceof Error ? error.message : "Password reset request failed",
+        },
+      };
+    }
+  },
+
+  /**
+   * Confirm password reset
+   */
+  async confirmPasswordReset(params: {
+    token: string;
+    newPassword: string;
+  }): Promise<{ data?: true; error?: { message: string } }> {
+    try {
+      await authAPI.confirmPasswordReset(params.token, params.newPassword);
+      return { data: true };
+    } catch (error) {
+      return {
+        error: {
+          message:
+            error instanceof Error ? error.message : "Password reset failed",
+        },
+      };
+    }
   },
 
   /**
@@ -284,11 +341,16 @@ export const authClient = {
       if (!store.user) {
         await store.checkAuth();
       }
-      const user = useAuthStore.getState().user;
+      const latest = useAuthStore.getState();
+      const user = latest.user;
       if (!user) {
         return { data: null };
       }
-      return { data: { organizationId: user.org_id } };
+      return {
+        data: {
+          organizationId: latest.activeOrgId || user.org_id,
+        },
+      };
     },
 
     async list(): Promise<{ data: Organization[] | null }> {
@@ -297,18 +359,30 @@ export const authClient = {
       if (!user) {
         return { data: null };
       }
+      const organizations =
+        store.organizations.length > 0
+          ? store.organizations
+          : [
+              {
+                id: user.org_id,
+                name: user.org_name,
+                role: user.role,
+                status: "active",
+                region: null,
+                created_at: null,
+              },
+            ];
       return {
-        data: [
-          {
-            id: user.org_id,
-            name: user.org_name,
-          },
-        ],
+        data: organizations.map((org) => ({
+          id: org.id,
+          name: org.name,
+        })),
       };
     },
 
-    async setActive(_opts: { organizationId: string }): Promise<void> {
-      // TODO: Implement when Python backend supports multiple orgs
+    async setActive(opts: { organizationId: string }): Promise<void> {
+      const store = useAuthStore.getState();
+      await store.switchOrganization(opts.organizationId);
     },
 
     async listMembers(): Promise<{ data: { members: OrgMember[] } | null }> {

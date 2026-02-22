@@ -762,24 +762,36 @@ class TestIndexManagement:
 
     @pytest.mark.asyncio
     async def test_create_vector_index(self, mock_falkordb, graph_client):
-        """Test vector index creation (placeholder)."""
+        """Test vector index creation executes index query."""
+        mock_class, mock_client, mock_graph = mock_falkordb
+        mock_result = MagicMock()
+        mock_result.header = []
+        mock_result.result_set = []
+        mock_graph.query.return_value = mock_result
+
         await graph_client.connect()
-        # Currently a no-op that logs - should not raise
         await graph_client.create_vector_index(
             label="Contact",
             prop="embedding",
             dimension=1536,
         )
+        assert mock_graph.query.call_count >= 1
 
     @pytest.mark.asyncio
     async def test_create_fulltext_index(self, mock_falkordb, graph_client):
-        """Test fulltext index creation (placeholder)."""
+        """Test fulltext index creation executes index query."""
+        mock_class, mock_client, mock_graph = mock_falkordb
+        mock_result = MagicMock()
+        mock_result.header = []
+        mock_result.result_set = []
+        mock_graph.query.return_value = mock_result
+
         await graph_client.connect()
-        # Currently a no-op that logs - should not raise
         await graph_client.create_fulltext_index(
             label="Contact",
             properties=["name", "email"],
         )
+        assert mock_graph.query.call_count >= 1
 
 
 # =============================================================================

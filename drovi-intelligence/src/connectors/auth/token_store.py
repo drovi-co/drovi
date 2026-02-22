@@ -12,9 +12,17 @@ import structlog
 from cryptography.fernet import Fernet
 from pydantic import BaseModel, Field
 
+from src.config import get_settings
+from src.connectors.auth.token_crypto import (
+    ConnectorTokenCipher,
+    get_connector_token_cipher,
+)
 from src.connectors.auth.oauth2 import OAuth2Tokens
 
 logger = structlog.get_logger()
+
+# Singleton token store instance
+_token_store: "TokenStore | None" = None
 
 
 class StoredToken(BaseModel):
@@ -255,23 +263,23 @@ class PostgresTokenStore(TokenStore):
 
     def __init__(
         self,
-        encryption_key: bytes,
+        cipher: ConnectorTokenCipher,
     ):
         """
         Initialize PostgreSQL token store.
 
         Args:
-            encryption_key: 32-byte Fernet encryption key
+            cipher: Connector token cipher (primary + fallback keys)
         """
-        self._fernet = Fernet(encryption_key)
+        self._cipher = cipher
 
     def _encrypt(self, data: str) -> bytes:
         """Encrypt string data."""
-        return self._fernet.encrypt(data.encode())
+        return self._cipher.encrypt(data)
 
     def _decrypt(self, data: bytes) -> str:
         """Decrypt to string."""
-        return self._fernet.decrypt(data).decode()
+        return self._cipher.decrypt(data)
 
     async def store_tokens(
         self,
@@ -416,3 +424,31 @@ class PostgresTokenStore(TokenStore):
             rows = result.fetchall()
 
         return [(row.connection_id, row.organization_id, row.expires_at) for row in rows]
+
+
+async def get_token_store() -> TokenStore:
+    """
+    Get global token store instance.
+
+    Uses PostgreSQL-backed storage in normal environments and in-memory storage
+    in test to avoid external setup.
+    """
+    global _token_store
+    if _token_store is not None:
+        return _token_store
+
+    settings = get_settings()
+    cipher = get_connector_token_cipher()
+
+    if settings.environment == "test":
+        _token_store = InMemoryTokenStore(encryption_key=cipher.primary_key)
+    else:
+        _token_store = PostgresTokenStore(cipher=cipher)
+
+    return _token_store
+
+
+def set_token_store_for_tests(store: TokenStore | None) -> None:
+    """Override token store singleton for tests."""
+    global _token_store
+    _token_store = store

@@ -7,7 +7,7 @@
  * - Entity autocomplete
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { type ParsedQuery, toApiRequest } from "@/lib/console-parser";
 
@@ -44,6 +44,15 @@ export interface ContactInfo {
   company: string | null;
 }
 
+export interface ConfidenceBreakdown {
+  confidence_reasoning: string | null;
+  extraction_reasoning: string | null;
+  model_used: string | null;
+  model_tier: string | null;
+  evidence_count: number | null;
+  quoted_text: string | null;
+}
+
 export interface ConsoleItem {
   id: string;
   type: string;
@@ -53,6 +62,7 @@ export interface ConsoleItem {
   priority: string | null;
   confidence: number | null;
   confidence_tier: string | null;
+  confidence_breakdown: ConfidenceBreakdown | null;
   created_at: string;
   updated_at: string;
   due_date: string | null;
@@ -95,6 +105,14 @@ export interface EntitySuggestion {
   description?: string;
 }
 
+export interface SavedSearch {
+  id: string;
+  name: string;
+  query: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // =============================================================================
 // API FUNCTIONS
 // =============================================================================
@@ -132,6 +150,34 @@ async function fetchEntitySuggestions(
   }
 
   return apiFetch<EntitySuggestion[]>(`/console/entities?${params}`);
+}
+
+async function fetchSavedSearches(
+  _organizationId: string
+): Promise<SavedSearch[]> {
+  return apiFetch<SavedSearch[]>("/console/saved-searches");
+}
+
+async function createSavedSearch(
+  _organizationId: string,
+  payload: { name: string; query: string }
+): Promise<SavedSearch> {
+  return apiFetch<SavedSearch>("/console/saved-searches", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+async function deleteSavedSearch(
+  _organizationId: string,
+  savedSearchId: string
+): Promise<void> {
+  await apiFetch<{ id: string; deleted: boolean }>(
+    `/console/saved-searches/${savedSearchId}`,
+    {
+      method: "DELETE",
+    }
+  );
 }
 
 // =============================================================================
@@ -180,6 +226,43 @@ export function useEntitySuggestions(
     queryFn: () => fetchEntitySuggestions(organizationId, entity, query, limit),
     enabled: Boolean(organizationId && entity),
     staleTime: 5 * 60_000, // 5 minutes
+  });
+}
+
+export function useSavedSearches(organizationId: string) {
+  return useQuery({
+    queryKey: ["console", "saved-searches", organizationId],
+    queryFn: () => fetchSavedSearches(organizationId),
+    enabled: Boolean(organizationId),
+    staleTime: 30_000,
+  });
+}
+
+export function useSaveSavedSearch(organizationId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: { name: string; query: string }) =>
+      createSavedSearch(organizationId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["console", "saved-searches", organizationId],
+      });
+    },
+  });
+}
+
+export function useDeleteSavedSearch(organizationId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (savedSearchId: string) =>
+      deleteSavedSearch(organizationId, savedSearchId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["console", "saved-searches", organizationId],
+      });
+    },
   });
 }
 

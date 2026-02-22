@@ -13,6 +13,12 @@
 //
 
 import { AssigneeIcon } from "@memorystack/ui-core/assignee-icon";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@memorystack/ui-core/dropdown-menu";
 import { IssueCheckbox } from "@memorystack/ui-core/issue-checkbox";
 import {
   type Priority,
@@ -30,6 +36,7 @@ import { cn } from "@/lib/utils";
 
 import {
   formatDueDate,
+  PRIORITY_CONFIG,
   STATUS_CONFIG,
   type TaskData,
   type TaskPriority,
@@ -61,6 +68,9 @@ interface TaskVirtualListProps {
   onTaskClick: (id: string) => void;
   onStatusChange: (id: string, status: TaskStatus) => void;
   onPriorityChange: (id: string, priority: TaskPriority) => void;
+  onStar?: (id: string) => void;
+  onArchive?: (id: string) => void;
+  onCreateTaskInStatus?: (status: TaskStatus) => void;
   groupByStatus?: boolean;
   className?: string;
 }
@@ -84,6 +94,9 @@ export function TaskVirtualList({
   onTaskClick,
   onStatusChange,
   onPriorityChange,
+  onStar,
+  onArchive,
+  onCreateTaskInStatus,
   groupByStatus = false,
   className,
 }: TaskVirtualListProps) {
@@ -132,7 +145,11 @@ export function TaskVirtualList({
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                <GroupHeader count={item.count} status={item.status} />
+                <GroupHeader
+                  count={item.count}
+                  onCreateTaskInStatus={onCreateTaskInStatus}
+                  status={item.status}
+                />
               </div>
             );
           }
@@ -153,9 +170,11 @@ export function TaskVirtualList({
               <VirtualTaskRow
                 isActive={selectedTaskId === task.id}
                 isSelected={selectedIds.has(task.id)}
+                onArchive={onArchive}
                 onClick={() => onTaskClick(task.id)}
                 onPriorityChange={onPriorityChange}
                 onSelect={onSelectTask}
+                onStar={onStar}
                 onStatusChange={onStatusChange}
                 task={task}
               />
@@ -174,9 +193,10 @@ export function TaskVirtualList({
 interface GroupHeaderProps {
   status: TaskStatus;
   count: number;
+  onCreateTaskInStatus?: (status: TaskStatus) => void;
 }
 
-function GroupHeader({ status, count }: GroupHeaderProps) {
+function GroupHeader({ status, count, onCreateTaskInStatus }: GroupHeaderProps) {
   const t = useT();
   const config = STATUS_CONFIG[status];
   // Map our status to the StatusIcon status type
@@ -200,9 +220,21 @@ function GroupHeader({ status, count }: GroupHeaderProps) {
         {t(config.label)}
       </span>
       <span className="text-[13px] text-muted-foreground">{count}</span>
-      <button className="ml-auto rounded p-1.5 transition-colors hover:bg-accent">
-        <Plus className="h-3 w-3 text-muted-foreground" />
-      </button>
+      {onCreateTaskInStatus ? (
+        <button
+          aria-label={t("pages.dashboard.tasks.actions.addTask")}
+          className="ml-auto rounded p-1.5 transition-colors hover:bg-accent"
+          onClick={(event) => {
+            event.stopPropagation();
+            onCreateTaskInStatus(status);
+          }}
+          type="button"
+        >
+          <Plus className="h-3 w-3 text-muted-foreground" />
+        </button>
+      ) : (
+        <div className="ml-auto h-6 w-6" />
+      )}
     </div>
   );
 }
@@ -219,6 +251,8 @@ interface VirtualTaskRowProps {
   onClick: () => void;
   onStatusChange: (id: string, status: TaskStatus) => void;
   onPriorityChange: (id: string, priority: TaskPriority) => void;
+  onStar?: (id: string) => void;
+  onArchive?: (id: string) => void;
 }
 
 // Map task status to status icon status
@@ -299,6 +333,10 @@ function VirtualTaskRow({
   isActive,
   onSelect,
   onClick,
+  onStatusChange,
+  onPriorityChange,
+  onStar,
+  onArchive,
 }: VirtualTaskRowProps) {
   const { locale, t } = useI18n();
   const dueInfo = formatDueDate(task.dueDate, { locale, t });
@@ -351,8 +389,35 @@ function VirtualTaskRow({
           COL.priority,
           "flex h-7 shrink-0 items-center justify-center"
         )}
+        onClick={(event) => event.stopPropagation()}
       >
-        <PriorityIcon priority={iconPriority} size="sm" />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              aria-label="Change priority"
+              className="rounded-[4px] p-1 transition-colors hover:bg-accent"
+              type="button"
+            >
+              <PriorityIcon priority={iconPriority} size="sm" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {Object.entries(PRIORITY_CONFIG).map(([priority, config]) => (
+              <DropdownMenuItem
+                key={priority}
+                onClick={() =>
+                  onPriorityChange(task.id, priority as TaskPriority)
+                }
+              >
+                <PriorityIcon
+                  priority={mapPriority(priority as TaskPriority)}
+                  size="sm"
+                />
+                <span className="ml-2">{t(config.label)}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Source - fixed width (matches inbox exactly) */}
@@ -368,8 +433,30 @@ function VirtualTaskRow({
           COL.status,
           "flex h-7 shrink-0 items-center justify-center"
         )}
+        onClick={(event) => event.stopPropagation()}
       >
-        <StatusIcon size="sm" status={iconStatus} />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              aria-label="Change status"
+              className="rounded-[4px] p-1 transition-colors hover:bg-accent"
+              type="button"
+            >
+              <StatusIcon size="sm" status={iconStatus} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {Object.entries(STATUS_CONFIG).map(([status, config]) => (
+              <DropdownMenuItem
+                key={status}
+                onClick={() => onStatusChange(task.id, status as TaskStatus)}
+              >
+                <StatusIcon size="sm" status={mapStatus(status as TaskStatus)} />
+                <span className="ml-2">{t(config.label)}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Task ID - fixed width (matches sender column in inbox) */}
@@ -465,7 +552,7 @@ function VirtualTaskRow({
         {/* Hover state: Actions - replaces entire section (matches inbox) */}
         <div className="hidden items-center justify-end gap-0.5 group-hover:flex">
           <button
-            aria-label="Star"
+            aria-label={t("pages.dashboard.tasks.actions.star")}
             className={cn(
               "flex h-7 w-7 items-center justify-center rounded-[4px]",
               "transition-colors duration-100",
@@ -474,14 +561,14 @@ function VirtualTaskRow({
             )}
             onClick={(e) => {
               e.stopPropagation();
-              // Star action - placeholder
+              onStar?.(task.id);
             }}
             type="button"
           >
             <Star className="size-4" />
           </button>
           <button
-            aria-label="Archive"
+            aria-label={t("pages.dashboard.tasks.actions.archive")}
             className={cn(
               "flex h-7 w-7 items-center justify-center rounded-[4px]",
               "transition-colors duration-100",
@@ -490,7 +577,7 @@ function VirtualTaskRow({
             )}
             onClick={(e) => {
               e.stopPropagation();
-              // Archive action - placeholder
+              onArchive?.(task.id);
             }}
             type="button"
           >

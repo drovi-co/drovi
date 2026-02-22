@@ -13,7 +13,15 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { intelligenceAPI, type UIO, type UIOListResponse } from "@/lib/api";
+import {
+  type CommitmentFollowUpDraft,
+  type DecisionSupersessionChain,
+  intelligenceAPI,
+  searchAPI,
+  type UIO,
+  type UIOComment,
+  type UIOListResponse,
+} from "@/lib/api";
 
 // =============================================================================
 // Types
@@ -51,6 +59,8 @@ const uioKeys = {
       params.organizationId ?? "no-org",
       params.id,
     ] as const,
+  comments: (params: { organizationId?: string; id: string }) =>
+    [...uioKeys.detail(params), "comments"] as const,
 };
 
 function patchUpdatedUIOInCache(queryClient: QueryClient, updated: UIO): void {
@@ -344,6 +354,94 @@ export function useDecisionUIOs(params: {
 }
 
 /**
+ * Backend-assisted semantic search for decision UIOs.
+ */
+export function useDecisionSemanticSearch(params: {
+  organizationId?: string;
+  query: string;
+  limit?: number;
+  enabled?: boolean;
+}) {
+  const normalizedQuery = params.query.trim();
+  const enabled =
+    params.enabled !== false &&
+    !!params.organizationId &&
+    normalizedQuery.length > 2;
+
+  return useQuery({
+    queryKey: [
+      ...uioKeys.list({
+        organizationId: params.organizationId,
+        type: "decision",
+      }),
+      "semantic-search",
+      normalizedQuery,
+      params.limit ?? 20,
+    ],
+    queryFn: async (): Promise<UIO[]> => {
+      const searchResponse = await searchAPI.search({
+        query: normalizedQuery,
+        types: ["decision"],
+        include_graph_context: true,
+        limit: params.limit ?? 20,
+      });
+
+      const decisionIds = Array.from(
+        new Set(
+          searchResponse.results
+            .map((result) => result.id)
+            .filter((id): id is string => Boolean(id))
+        )
+      );
+      if (decisionIds.length === 0) {
+        return [];
+      }
+
+      const hydrated = await Promise.all(
+        decisionIds.map(async (id) => {
+          try {
+            return await intelligenceAPI.getUIO(id);
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      return hydrated.filter((item): item is UIO => item !== null);
+    },
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Fetch ordered decision supersession chain (oldest -> newest).
+ */
+export function useDecisionSupersessionChain(params: {
+  organizationId?: string;
+  id: string;
+  enabled?: boolean;
+}) {
+  const enabled =
+    params.enabled !== false && !!params.organizationId && !!params.id;
+
+  return useQuery({
+    queryKey: [
+      ...uioKeys.detail({
+        organizationId: params.organizationId,
+        id: params.id,
+      }),
+      "decision-supersession-chain",
+    ],
+    queryFn: async (): Promise<DecisionSupersessionChain> => {
+      return intelligenceAPI.getDecisionSupersessionChain(params.id);
+    },
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+/**
  * Fetch task UIOs with extension details.
  */
 export function useTaskUIOs(params: {
@@ -603,6 +701,24 @@ export function useMarkCompleteUIO() {
 }
 
 /**
+ * Generate commitment follow-up draft through backend generation service.
+ */
+export function useGenerateCommitmentFollowUpUIO() {
+  return useMutation({
+    mutationFn: async ({
+      id,
+      tone,
+    }: {
+      id: string;
+      tone?: "friendly" | "neutral" | "firm";
+      organizationId?: string;
+    }): Promise<CommitmentFollowUpDraft> => {
+      return intelligenceAPI.generateCommitmentFollowUp(id, tone ?? "neutral");
+    },
+  });
+}
+
+/**
  * Snooze a commitment until a specified date.
  */
 export function useSnoozeUIO() {
@@ -611,13 +727,16 @@ export function useSnoozeUIO() {
   return useMutation({
     mutationFn: async ({
       id,
+      until,
     }: {
       id: string;
       organizationId?: string;
       until?: Date;
     }) => {
-      // For now, just mark as in_progress (snooze functionality would need backend support)
-      return intelligenceAPI.updateStatus(id, "in_progress");
+      if (!(until instanceof Date) || Number.isNaN(until.getTime())) {
+        throw new Error("A valid snooze date is required");
+      }
+      return intelligenceAPI.snooze(id, until.toISOString());
     },
     onSuccess: (updated) => {
       patchUpdatedUIOInCache(queryClient, updated);
@@ -637,10 +756,16 @@ export function useUpdateTaskStatusUIO() {
       status,
     }: {
       id: string;
-      status: string;
+      status:
+        | "backlog"
+        | "todo"
+        | "in_progress"
+        | "in_review"
+        | "done"
+        | "cancelled";
       organizationId?: string;
     }) => {
-      return intelligenceAPI.updateStatus(id, status);
+      return intelligenceAPI.updateTaskStatus(id, status);
     },
     onSuccess: (updated) => {
       patchUpdatedUIOInCache(queryClient, updated);
@@ -657,17 +782,69 @@ export function useUpdateTaskPriorityUIO() {
   return useMutation({
     mutationFn: async ({
       id,
+      priority,
     }: {
       id: string;
-      priority: string;
+      priority: "no_priority" | "low" | "medium" | "high" | "urgent";
       organizationId?: string;
     }) => {
-      // Priority updates would need backend support
-      // For now, this is a no-op that invalidates cache
-      return { id };
+      return intelligenceAPI.updateTaskPriority(id, priority);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: uioKeys.lists() });
+    onSuccess: (updated) => {
+      patchUpdatedUIOInCache(queryClient, updated);
+    },
+  });
+}
+
+/**
+ * Fetch persisted team discussion comments for a UIO.
+ */
+export function useUIOComments(params: {
+  organizationId?: string;
+  id: string;
+  enabled?: boolean;
+}) {
+  const enabled = params.enabled !== false && !!params.organizationId && !!params.id;
+
+  return useQuery({
+    queryKey: uioKeys.comments({
+      organizationId: params.organizationId,
+      id: params.id,
+    }),
+    queryFn: async (): Promise<UIOComment[]> => {
+      return intelligenceAPI.listComments(params.id);
+    },
+    enabled,
+  });
+}
+
+/**
+ * Add a persisted team discussion comment for a UIO.
+ */
+export function useAddUIOComment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: string;
+      organizationId?: string;
+    }) => {
+      return intelligenceAPI.addComment(id, body);
+    },
+    onSuccess: (created, variables) => {
+      if (variables.organizationId) {
+        queryClient.setQueryData<UIOComment[]>(
+          uioKeys.comments({
+            organizationId: variables.organizationId,
+            id: variables.id,
+          }),
+          (current) => [...(current ?? []), created]
+        );
+      }
     },
   });
 }

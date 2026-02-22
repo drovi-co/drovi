@@ -2,7 +2,16 @@ export type { ActuationRecordSummary } from "./actuations";
 export { transformActuationSummary } from "./actuations";
 export type { AskResponse, AskSource } from "./ask";
 
-export type { EmailAuthResponse, OAuthInitResponse, SyncStatus } from "./auth";
+export type {
+  EmailAuthResponse,
+  PasswordResetConfirmResponse,
+  PasswordResetRequestResponse,
+  OAuthInitResponse,
+  OrganizationMembership,
+  OrganizationsResponse,
+  SwitchOrganizationResponse,
+  SyncStatus,
+} from "./auth";
 export type { Brief, BriefHighlight, OpenLoop } from "./brief";
 export type { ChangeRecord } from "./changes";
 export type {
@@ -74,6 +83,10 @@ export type {
   SyncTriggerResponse,
   User,
 } from "./org";
+export type {
+  OrgSecurityPolicy,
+  OrgSecurityPolicyUpdate,
+} from "./org-security";
 export type { PatternCandidate } from "./patterns";
 export type {
   ContentSearchResponse,
@@ -98,14 +111,24 @@ export type {
 } from "./trust";
 export type {
   BriefDetails,
+  CommitmentFollowUpDraft,
   ClaimDetails,
   CommitmentDetails,
   Contact,
+  DecisionSupersessionChain,
+  DecisionSupersessionChainItem,
   DecisionDetails,
   RiskDetails,
   SourceInfo,
   TaskDetails,
+  LLMTrace,
+  UIOComment,
   UIO,
   UIOListResponse,
 } from "./uio";
-export { transformUIO } from "./uio";
+export {
+  transformCommitmentFollowUpDraft,
+  transformDecisionSupersessionChain,
+  transformUIO,
+  transformUIOComment,
+} from "./uio";

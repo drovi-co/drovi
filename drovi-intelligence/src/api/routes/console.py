@@ -11,6 +11,7 @@ import json
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Literal
+from uuid import uuid4
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -92,6 +93,17 @@ class ContactInfo(BaseModel):
     company: str | None = None
 
 
+class ConfidenceBreakdown(BaseModel):
+    """Optional extraction context used to explain confidence."""
+
+    confidence_reasoning: str | None = None
+    extraction_reasoning: str | None = None
+    model_used: str | None = None
+    model_tier: str | None = None
+    evidence_count: int | None = None
+    quoted_text: str | None = None
+
+
 class UIOItem(BaseModel):
     """UIO item in response."""
 
@@ -103,6 +115,7 @@ class UIOItem(BaseModel):
     priority: str | None = None
     confidence: float | None = None
     confidence_tier: str | None = None
+    confidence_breakdown: ConfidenceBreakdown | None = None
     due_date: datetime | None = None
     created_at: datetime
     updated_at: datetime | None = None
@@ -183,9 +196,41 @@ class EntitySuggestion(BaseModel):
     metadata: dict | None = None
 
 
+class SavedSearchCreateRequest(BaseModel):
+    """Create or update a saved search for the current auth subject."""
+
+    name: str = Field(..., min_length=1, max_length=120)
+    query: str = Field(..., min_length=1, max_length=4000)
+
+
+class SavedSearchResponse(BaseModel):
+    """Persisted saved search."""
+
+    id: str
+    name: str
+    query: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class SavedSearchDeleteResponse(BaseModel):
+    """Delete response for a saved search."""
+
+    id: str
+    deleted: bool = True
+
+
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
+
+def _require_scope(auth: AuthContext, scope: Scope) -> None:
+    if not auth.has_scope(scope):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Missing required scope: {scope.value}",
+        )
 
 
 def _parse_relative_time(value: str) -> timedelta:
@@ -226,6 +271,91 @@ def _build_contact(row: dict, prefix: str) -> ContactInfo | None:
         avatar_url=row.get(f"{prefix}_avatar"),
         company=row.get(f"{prefix}_company"),
     )
+
+
+def _parse_extraction_context(value) -> dict:
+    """Parse extraction context from JSON/JSONB payloads."""
+    if not value:
+        return {}
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    try:
+        parsed = dict(value)
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception:
+        return {}
+
+
+def _read_context_str(context: dict, *keys: str) -> str | None:
+    for key in keys:
+        value = context.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _read_context_int(context: dict, *keys: str) -> int | None:
+    for key in keys:
+        value = context.get(key)
+        if value is None:
+            continue
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            continue
+        if parsed >= 0:
+            return parsed
+    return None
+
+
+def _extract_confidence_breakdown(row: dict) -> ConfidenceBreakdown | None:
+    context_column_by_type = {
+        "commitment": "commitment_extraction_context",
+        "decision": "decision_extraction_context",
+        "task": "task_extraction_context",
+        "risk": "risk_extraction_context",
+        "claim": "claim_extraction_context",
+    }
+    context_column = context_column_by_type.get(row.get("type"))
+    if not context_column:
+        return None
+
+    context = _parse_extraction_context(row.get(context_column))
+    if not context:
+        return None
+
+    breakdown = ConfidenceBreakdown(
+        confidence_reasoning=_read_context_str(
+            context,
+            "confidenceReasoning",
+            "confidence_reasoning",
+        ),
+        extraction_reasoning=_read_context_str(context, "reasoning"),
+        model_used=_read_context_str(context, "modelUsed", "model_used"),
+        model_tier=_read_context_str(context, "modelTier", "model_tier"),
+        evidence_count=_read_context_int(context, "evidenceCount", "evidence_count"),
+        quoted_text=_read_context_str(context, "quotedText", "quoted_text"),
+    )
+
+    if not any(
+        (
+            breakdown.confidence_reasoning,
+            breakdown.extraction_reasoning,
+            breakdown.model_used,
+            breakdown.model_tier,
+            breakdown.evidence_count is not None,
+            breakdown.quoted_text,
+        )
+    ):
+        return None
+
+    return breakdown
 
 
 # =============================================================================
@@ -498,6 +628,7 @@ async def console_query(
 
                 -- Commitment details
                 cd.direction, cd.priority as commitment_priority, cd.status as commitment_status,
+                cd.extraction_context as commitment_extraction_context,
 
                 -- Debtor
                 dc.id as debtor_id, dc.display_name as debtor_name,
@@ -509,6 +640,7 @@ async def console_query(
 
                 -- Decision details
                 dd.decided_at, dd.status as decision_status,
+                dd.extraction_context as decision_extraction_context,
 
                 -- Decision maker
                 dmc.id as decision_maker_id, dmc.display_name as decision_maker_name,
@@ -516,6 +648,7 @@ async def console_query(
 
                 -- Task details
                 td.status as task_status, td.priority as task_priority,
+                td.extraction_context as task_extraction_context,
 
                 -- Assignee
                 ac.id as assignee_id, ac.display_name as assignee_name,
@@ -523,6 +656,10 @@ async def console_query(
 
                 -- Risk details
                 rd.severity,
+                rd.extraction_context as risk_extraction_context,
+
+                -- Claim details
+                cld.extraction_context as claim_extraction_context,
 
                 -- Source
                 uos.source_type, uos.id as source_id,
@@ -576,6 +713,7 @@ async def console_query(
                 priority=priority,
                 confidence=confidence,
                 confidence_tier=confidence_tier,
+                confidence_breakdown=_extract_confidence_breakdown(dict(row)),
                 due_date=row.get("due_date"),
                 created_at=row["created_at"],
                 updated_at=row.get("updated_at"),
@@ -1122,6 +1260,209 @@ async def get_entity_suggestions(
     except Exception as e:
         logger.error("Entity suggestions failed", error=str(e), entity=entity)
         raise HTTPException(status_code=500, detail=f"Failed to get suggestions: {str(e)}")
+
+
+# =============================================================================
+# Saved Searches Endpoint
+# =============================================================================
+
+
+@router.get("/saved-searches", response_model=list[SavedSearchResponse])
+async def list_saved_searches(
+    limit: int = Query(50, ge=1, le=200),
+    auth: AuthContext = Depends(get_auth_context),
+) -> list[SavedSearchResponse]:
+    """List saved searches for the current authenticated subject."""
+    _require_scope(auth, Scope.READ)
+
+    org_id = auth.organization_id
+    if not org_id or org_id == "internal":
+        raise HTTPException(
+            status_code=400,
+            detail="Organization context is required",
+        )
+
+    try:
+        pool = await get_raw_query_pool()
+        query = """
+            SELECT
+                id,
+                name,
+                query_text,
+                created_at,
+                updated_at
+            FROM console_saved_search
+            WHERE organization_id = $1
+              AND owner_subject_id = $2
+            ORDER BY updated_at DESC, created_at DESC
+            LIMIT $3
+        """
+
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                query,
+                org_id,
+                auth.auth_subject_id,
+                limit,
+            )
+
+        return [
+            SavedSearchResponse(
+                id=row["id"],
+                name=row["name"],
+                query=row["query_text"],
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+            )
+            for row in rows
+        ]
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Failed to list saved searches",
+            organization_id=org_id,
+            auth_subject_id=auth.auth_subject_id,
+            error=str(exc),
+        )
+        raise HTTPException(status_code=500, detail="Failed to list saved searches")
+
+
+@router.post("/saved-searches", response_model=SavedSearchResponse)
+async def save_search(
+    request: SavedSearchCreateRequest,
+    auth: AuthContext = Depends(get_auth_context),
+) -> SavedSearchResponse:
+    """Create or update a saved search for the current authenticated subject."""
+    _require_scope(auth, Scope.WRITE)
+
+    org_id = auth.organization_id
+    if not org_id or org_id == "internal":
+        raise HTTPException(
+            status_code=400,
+            detail="Organization context is required",
+        )
+
+    name = request.name.strip()
+    query_text = request.query.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Search name cannot be empty")
+    if not query_text:
+        raise HTTPException(status_code=400, detail="Search query cannot be empty")
+
+    candidate_id = str(uuid4())
+
+    try:
+        pool = await get_raw_query_pool()
+        upsert_sql = """
+            INSERT INTO console_saved_search (
+                id,
+                organization_id,
+                owner_subject_id,
+                owner_user_id,
+                owner_email,
+                name,
+                query_text,
+                created_at,
+                updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+            ON CONFLICT (organization_id, owner_subject_id, name)
+            DO UPDATE SET
+                query_text = EXCLUDED.query_text,
+                owner_user_id = EXCLUDED.owner_user_id,
+                owner_email = EXCLUDED.owner_email,
+                updated_at = NOW()
+            RETURNING
+                id,
+                name,
+                query_text,
+                created_at,
+                updated_at
+        """
+
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                upsert_sql,
+                candidate_id,
+                org_id,
+                auth.auth_subject_id,
+                auth.user_id,
+                auth.user_email,
+                name,
+                query_text,
+            )
+
+        if not row:
+            raise HTTPException(status_code=500, detail="Failed to save search")
+
+        return SavedSearchResponse(
+            id=row["id"],
+            name=row["name"],
+            query=row["query_text"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Failed to save search",
+            organization_id=org_id,
+            auth_subject_id=auth.auth_subject_id,
+            error=str(exc),
+        )
+        raise HTTPException(status_code=500, detail="Failed to save search")
+
+
+@router.delete("/saved-searches/{saved_search_id}", response_model=SavedSearchDeleteResponse)
+async def delete_saved_search(
+    saved_search_id: str,
+    auth: AuthContext = Depends(get_auth_context),
+) -> SavedSearchDeleteResponse:
+    """Delete a saved search for the current authenticated subject."""
+    _require_scope(auth, Scope.WRITE)
+
+    org_id = auth.organization_id
+    if not org_id or org_id == "internal":
+        raise HTTPException(
+            status_code=400,
+            detail="Organization context is required",
+        )
+
+    try:
+        pool = await get_raw_query_pool()
+        delete_sql = """
+            DELETE FROM console_saved_search
+            WHERE id = $1
+              AND organization_id = $2
+              AND owner_subject_id = $3
+            RETURNING id
+        """
+
+        async with pool.acquire() as conn:
+            deleted = await conn.fetchrow(
+                delete_sql,
+                saved_search_id,
+                org_id,
+                auth.auth_subject_id,
+            )
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Saved search not found")
+
+        return SavedSearchDeleteResponse(id=saved_search_id, deleted=True)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Failed to delete saved search",
+            organization_id=org_id,
+            auth_subject_id=auth.auth_subject_id,
+            saved_search_id=saved_search_id,
+            error=str(exc),
+        )
+        raise HTTPException(status_code=500, detail="Failed to delete saved search")
 
 
 # =============================================================================

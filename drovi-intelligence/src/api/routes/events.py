@@ -504,6 +504,127 @@ def _format_sse(data: dict, event_type: str | None = None) -> str:
     return "\n".join(lines)
 
 
+async def _is_duplicate_pipeline_input(organization_id: str, content_hash: str | None) -> bool:
+    """Check whether a pipeline event already exists based on content hash."""
+    if not content_hash:
+        return False
+
+    try:
+        from src.db import get_db_pool
+
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT 1 FROM unified_event
+                WHERE organization_id = $1 AND content_hash = $2
+                """,
+                organization_id,
+                content_hash,
+            )
+        return bool(row)
+    except Exception:
+        return False
+
+
+async def _process_raw_event_synchronously(
+    organization_id: str,
+    source_type: str,
+    event_type: str,
+    source_id: str | None,
+    payload: dict[str, Any],
+) -> bool:
+    """
+    Run the same raw-event pipeline stages synchronously when Kafka is unavailable.
+
+    Returns True when the event reached extraction execution.
+    """
+    from src.config import get_settings
+
+    settings = get_settings()
+    if settings.kafka_raw_event_mode == "webhook_only" and event_type != "connector.webhook":
+        logger.info(
+            "Skipping synchronous raw event due to webhook_only mode",
+            organization_id=organization_id,
+            event_type=event_type,
+        )
+        return False
+
+    raw_event_payload = {
+        "organization_id": organization_id,
+        "source_type": source_type,
+        "event_type": event_type,
+        "source_id": source_id,
+        "payload": payload,
+    }
+
+    if event_type == "connector.webhook":
+        from src.connectors.webhooks.processor import process_connector_webhook_event
+
+        await process_connector_webhook_event(raw_event_payload)
+        return True
+
+    from src.streaming.ingestion_pipeline import (
+        enrich_normalized_payload,
+        normalize_raw_event_payload,
+    )
+
+    normalized_event = normalize_raw_event_payload(
+        raw_event_payload,
+        kafka_timestamp=datetime.utcnow().isoformat(),
+    )
+    if not normalized_event:
+        logger.warning(
+            "Synchronous raw event normalization produced no output",
+            organization_id=organization_id,
+            source_type=source_type,
+            event_type=event_type,
+        )
+        return False
+
+    pipeline_event = await enrich_normalized_payload(normalized_event)
+    if await _is_duplicate_pipeline_input(
+        pipeline_event.organization_id,
+        pipeline_event.ingest.get("content_hash"),
+    ):
+        logger.info(
+            "Skipping duplicate synchronous pipeline input",
+            organization_id=pipeline_event.organization_id,
+            content_hash=pipeline_event.ingest.get("content_hash"),
+        )
+        return False
+
+    if not pipeline_event.content:
+        logger.warning(
+            "Skipping synchronous pipeline input without content",
+            organization_id=pipeline_event.organization_id,
+            source_type=pipeline_event.source_type,
+        )
+        return False
+
+    from src.db.rls import rls_context
+    from src.orchestrator.graph import run_intelligence_extraction
+
+    with rls_context(pipeline_event.organization_id, is_internal=True):
+        await run_intelligence_extraction(
+            organization_id=pipeline_event.organization_id,
+            content=pipeline_event.content,
+            source_type=pipeline_event.source_type,
+            source_id=pipeline_event.source_id,
+            source_account_id=pipeline_event.connection_id,
+            conversation_id=pipeline_event.conversation_id,
+            message_ids=pipeline_event.message_ids,
+            user_email=pipeline_event.user_email,
+            user_name=pipeline_event.user_name,
+            metadata=pipeline_event.metadata,
+            candidate_only=bool(
+                pipeline_event.candidate_only or pipeline_event.is_partial
+            ),
+        )
+
+    return True
+
+
 # =============================================================================
 # RAW EVENT INGESTION (for TypeScript backend / connectors)
 # =============================================================================
@@ -560,28 +681,44 @@ async def ingest_raw_event(
 
     event_id = str(uuid4())
     kafka_produced = False
+    sync_processed = False
 
     try:
         # Try to produce to Kafka first
         from src.streaming import get_kafka_producer, is_streaming_enabled
 
         if is_streaming_enabled():
-            producer = await get_kafka_producer()
-            await producer.produce_raw_event(
-                organization_id=request.organization_id,
-                source_type=request.source_type,
-                event_type=request.event_type,
-                payload=request.payload,
-                source_id=request.source_id,
-            )
-            kafka_produced = True
-            logger.info(
-                "Raw event produced to Kafka",
-                event_id=event_id,
-                organization_id=request.organization_id,
-                source_type=request.source_type,
-                event_type=request.event_type,
-            )
+            try:
+                producer = await get_kafka_producer()
+                await producer.produce_raw_event(
+                    organization_id=request.organization_id,
+                    source_type=request.source_type,
+                    event_type=request.event_type,
+                    payload=request.payload,
+                    source_id=request.source_id,
+                )
+                kafka_produced = True
+                logger.info(
+                    "Raw event produced to Kafka",
+                    event_id=event_id,
+                    organization_id=request.organization_id,
+                    source_type=request.source_type,
+                    event_type=request.event_type,
+                )
+            except Exception as kafka_error:
+                logger.warning(
+                    "Kafka produce failed, falling back to synchronous processing",
+                    event_id=event_id,
+                    organization_id=request.organization_id,
+                    error=str(kafka_error),
+                )
+                sync_processed = await _process_raw_event_synchronously(
+                    organization_id=request.organization_id,
+                    source_type=request.source_type,
+                    event_type=request.event_type,
+                    source_id=request.source_id,
+                    payload=request.payload,
+                )
         else:
             # Kafka not available - process synchronously
             logger.info(
@@ -589,14 +726,27 @@ async def ingest_raw_event(
                 event_id=event_id,
                 organization_id=request.organization_id,
             )
-            # TODO: Call orchestrator directly for synchronous processing
-            # This is a fallback path when Kafka is not available
+            sync_processed = await _process_raw_event_synchronously(
+                organization_id=request.organization_id,
+                source_type=request.source_type,
+                event_type=request.event_type,
+                source_id=request.source_id,
+                payload=request.payload,
+            )
 
         return IngestRawEventResponse(
             success=True,
             event_id=event_id,
             kafka_produced=kafka_produced,
-            message="Event ingested and queued for processing" if kafka_produced else "Event accepted for synchronous processing",
+            message=(
+                "Event ingested and queued for processing"
+                if kafka_produced
+                else (
+                    "Event processed synchronously"
+                    if sync_processed
+                    else "Event accepted for synchronous processing"
+                )
+            ),
         )
 
     except Exception as e:

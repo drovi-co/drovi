@@ -54,6 +54,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { EvidenceRail } from "@/components/evidence";
+import { SourceViewerSheet } from "@/components/evidence/source-viewer-sheet";
+import { TeamDiscussion } from "@/components/unified-object/team-discussion";
 import {
   useDismissUIO,
   useMarkCompleteUIO,
@@ -217,6 +219,8 @@ function CommitmentDetailPage() {
   const [editingDescription, setEditingDescription] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [sourceViewerOpen, setSourceViewerOpen] = useState(false);
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
@@ -480,8 +484,12 @@ function CommitmentDetailPage() {
     );
   }, [commitment, verifyMutation, organizationId, refetch, queryClient]);
 
-  const handleSourceClick = useCallback((_conversationId?: string | null) => {
-    toast.message("Source viewer coming soon");
+  const handleSourceClick = useCallback((sourceId?: string | null) => {
+    if (!sourceId) {
+      return;
+    }
+    setSelectedSourceId(sourceId);
+    setSourceViewerOpen(true);
   }, []);
 
   // Keyboard shortcuts
@@ -805,10 +813,7 @@ function CommitmentDetailPage() {
                       <div
                         className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/50 p-3 transition-colors hover:border-secondary/50 hover:bg-muted"
                         key={source.id}
-                        onClick={() =>
-                          source.conversationId &&
-                          handleSourceClick(source.conversationId)
-                        }
+                        onClick={() => handleSourceClick(source.id)}
                       >
                         <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <div className="min-w-0 flex-1">
@@ -922,10 +927,11 @@ function CommitmentDetailPage() {
                     Team Discussion
                   </span>
                 </div>
-                <div className="mt-3 rounded-lg border border-dashed bg-muted/40 px-3 py-4 text-muted-foreground text-xs">
-                  Collaborative threads are coming soon. Capture updates
-                  directly in the commitment notes or attach evidence from your
-                  sources.
+                <div className="mt-3">
+                  <TeamDiscussion
+                    organizationId={organizationId}
+                    uioId={commitment.id}
+                  />
                 </div>
               </div>
             </div>
@@ -1117,6 +1123,18 @@ function CommitmentDetailPage() {
           </div>
         </div>
       </div>
+
+      <SourceViewerSheet
+        onOpenChange={(open) => {
+          setSourceViewerOpen(open);
+          if (!open) {
+            setSelectedSourceId(null);
+          }
+        }}
+        open={sourceViewerOpen}
+        organizationId={organizationId}
+        sourceId={selectedSourceId}
+      />
     </div>
   );
 }

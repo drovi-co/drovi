@@ -11,9 +11,16 @@ This node runs after persist to evolve the knowledge graph.
 
 import time
 from datetime import datetime, timedelta, timezone
+import hashlib
+import json
+import re
 from uuid import uuid4
 
 import structlog
+
+from src.db import get_raw_query_pool
+from src.db.rls import rls_context
+from src.graph.types import GraphNodeType
 
 from ..state import (
     IntelligenceState,
@@ -234,6 +241,137 @@ async def _handle_updates(state: IntelligenceState, graph) -> list[dict]:
     return superseded
 
 
+_TEMPLATE_PLACEHOLDER_RE = re.compile(
+    r"\{([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\}"
+)
+_PATTERN_ALIAS_RE = re.compile(r"\(([A-Za-z_][A-Za-z0-9_]*)\s*:")
+
+
+def _extract_aliases_from_pattern(pattern: str) -> list[str]:
+    aliases = _PATTERN_ALIAS_RE.findall(pattern or "")
+    unique: list[str] = []
+    for alias in aliases:
+        if alias not in unique:
+            unique.append(alias)
+    return unique
+
+
+def _render_template(template: str, context: dict[str, dict[str, object]]) -> str:
+    """Render placeholders like {alias.property} from a match context."""
+    if not template:
+        return ""
+
+    def _replace(match: re.Match[str]) -> str:
+        alias = match.group(1)
+        prop = match.group(2)
+        value = context.get(alias, {}).get(prop)
+        return "" if value is None else str(value)
+
+    return _TEMPLATE_PLACEHOLDER_RE.sub(_replace, template).strip()
+
+
+async def _list_active_derivation_rules(organization_id: str) -> list[dict]:
+    """Load active derivation rules from PostgreSQL."""
+    query = """
+        SELECT
+            id,
+            organization_id,
+            name,
+            description,
+            input_pattern,
+            output_entity_type,
+            output_template,
+            confidence_multiplier,
+            domain,
+            is_active
+        FROM derivation_rule
+        WHERE is_active = TRUE
+          AND (organization_id IS NULL OR organization_id = $1)
+        ORDER BY organization_id NULLS FIRST, created_at ASC
+        LIMIT 100
+    """
+    try:
+        pool = await get_raw_query_pool()
+        with rls_context(organization_id, is_internal=True):
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(query, organization_id)
+        return [dict(row) for row in rows]
+    except Exception as exc:
+        logger.warning(
+            "Failed to list derivation rules",
+            organization_id=organization_id,
+            error=str(exc),
+        )
+        return []
+
+
+async def _get_derivation_rule(rule_id: str, organization_id: str) -> dict | None:
+    query = """
+        SELECT
+            id,
+            organization_id,
+            name,
+            description,
+            input_pattern,
+            output_entity_type,
+            output_template,
+            confidence_multiplier,
+            domain,
+            is_active
+        FROM derivation_rule
+        WHERE id = $1
+          AND (organization_id IS NULL OR organization_id = $2)
+          AND is_active = TRUE
+        LIMIT 1
+    """
+    try:
+        pool = await get_raw_query_pool()
+        with rls_context(organization_id, is_internal=True):
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(query, rule_id, organization_id)
+        return dict(row) if row else None
+    except Exception as exc:
+        logger.warning(
+            "Failed to load derivation rule",
+            rule_id=rule_id,
+            organization_id=organization_id,
+            error=str(exc),
+        )
+        return None
+
+
+async def _record_derivation_rule_match(
+    *,
+    organization_id: str,
+    rule_id: str,
+    match_count: int,
+) -> None:
+    if match_count <= 0:
+        return
+
+    query = """
+        UPDATE derivation_rule
+        SET
+            times_matched = COALESCE(times_matched, 0) + $1,
+            last_matched_at = NOW(),
+            updated_at = NOW()
+        WHERE id = $2
+          AND (organization_id IS NULL OR organization_id = $3)
+    """
+    try:
+        pool = await get_raw_query_pool()
+        with rls_context(organization_id, is_internal=True):
+            async with pool.acquire() as conn:
+                await conn.execute(query, match_count, rule_id, organization_id)
+    except Exception as exc:
+        logger.warning(
+            "Failed to record derivation rule usage",
+            rule_id=rule_id,
+            organization_id=organization_id,
+            error=str(exc),
+        )
+
+
 async def _handle_derivations(state: IntelligenceState, graph) -> list[dict]:
     """
     Apply derivation rules to create new inferred knowledge.
@@ -245,44 +383,38 @@ async def _handle_derivations(state: IntelligenceState, graph) -> list[dict]:
     Uses derivation_rule table in PostgreSQL to get active rules,
     then executes them against the graph.
     """
-    derived = []
+    derived: list[dict] = []
     organization_id = state.input.organization_id
 
-    try:
-        # Get active derivation rules (from PostgreSQL)
-        # For now, we'll use built-in rules. Later this can be extended
-        # to read from derivation_rule table
+    rules = await _list_active_derivation_rules(organization_id)
+    if not rules:
+        return derived
 
-        # Built-in rule: Job role inference
-        # If someone has a role and discusses specific topics, infer their work area
-        result = await graph.query(
-            """
-            MATCH (c:Contact {organizationId: $org_id})-[:MENTIONED_IN]->(ep:Episode)
-            WHERE c.title IS NOT NULL
-            AND c.validTo IS NULL
-            WITH c, collect(DISTINCT ep.content) as contents
-            WHERE size(contents) > 2
-            RETURN c.id as contact_id, c.name as name, c.title as title, contents
-            LIMIT 10
-            """,
-            {"org_id": organization_id},
-        )
-
-        # For now, we'll just log potential derivations
-        # Full implementation would use LLM to derive new facts
-        for row in result:
-            logger.debug(
-                "Potential derivation candidate",
-                contact=row["name"],
-                title=row["title"],
-                episode_count=len(row["contents"]),
+    for rule in rules:
+        rule_id = str(rule.get("id") or "")
+        if not rule_id:
+            continue
+        try:
+            created = await run_derivation_rule(
+                rule_id=rule_id,
+                organization_id=organization_id,
+                graph=graph,
+                rule=rule,
             )
-
-    except Exception as e:
-        logger.warning(
-            "Failed to run derivation rules",
-            error=str(e),
-        )
+            if created:
+                await _record_derivation_rule_match(
+                    organization_id=organization_id,
+                    rule_id=rule_id,
+                    match_count=len(created),
+                )
+                derived.extend(created)
+        except Exception as exc:
+            logger.warning(
+                "Failed to execute derivation rule",
+                organization_id=organization_id,
+                rule_id=rule_id,
+                error=str(exc),
+            )
 
     return derived
 
@@ -365,6 +497,9 @@ async def run_derivation_rule(
     rule_id: str,
     organization_id: str,
     graph,
+    *,
+    rule: dict | None = None,
+    limit: int = 50,
 ) -> list[dict]:
     """
     Execute a specific derivation rule from the database.
@@ -377,6 +512,182 @@ async def run_derivation_rule(
     Returns:
         List of derived entities created
     """
-    # This would read the rule from PostgreSQL and execute its Cypher pattern
-    # For now, this is a placeholder for the full implementation
-    return []
+    rule_record = rule or await _get_derivation_rule(rule_id, organization_id)
+    if not rule_record:
+        return []
+
+    input_pattern = str(rule_record.get("input_pattern") or "").strip()
+    if not input_pattern:
+        return []
+
+    aliases = _extract_aliases_from_pattern(input_pattern)
+    if not aliases:
+        logger.warning(
+            "Derivation rule skipped: no aliases found in pattern",
+            rule_id=rule_id,
+            organization_id=organization_id,
+        )
+        return []
+
+    output_template = rule_record.get("output_template") or {}
+    if isinstance(output_template, str):
+        try:
+            output_template = json.loads(output_template)
+        except Exception:
+            output_template = {}
+    if not isinstance(output_template, dict):
+        output_template = {}
+
+    org_filters = [
+        f"({alias}.organizationId = $org_id OR {alias}.organization_id = $org_id)"
+        for alias in aliases
+    ]
+    active_filters = [f"{alias}.validTo IS NULL" for alias in aliases]
+    return_clause = ", ".join(f"{alias} as {alias}" for alias in aliases)
+
+    query = f"""
+        MATCH {input_pattern}
+        WHERE {' AND '.join(org_filters + active_filters)}
+        RETURN {return_clause}
+        LIMIT $limit
+    """
+
+    try:
+        matches = await graph.query(
+            query,
+            {"org_id": organization_id, "limit": max(1, min(int(limit), 200))},
+        )
+    except Exception as exc:
+        logger.warning(
+            "Derivation rule query failed",
+            rule_id=rule_id,
+            organization_id=organization_id,
+            error=str(exc),
+        )
+        return []
+
+    derived_entities: list[dict] = []
+    now = datetime.now(timezone.utc).isoformat()
+
+    name_template = str(output_template.get("nameTemplate") or "").strip()
+    summary_template = str(output_template.get("summaryTemplate") or "").strip()
+    property_templates = output_template.get("properties")
+    if not isinstance(property_templates, dict):
+        property_templates = {}
+
+    output_entity_type = str(rule_record.get("output_entity_type") or "fact")
+    confidence_multiplier = float(
+        rule_record.get("confidence_multiplier") or DERIVATION_CONFIDENCE_MULTIPLIER
+    )
+    derived_confidence = min(
+        1.0,
+        max(0.0, DERIVATION_CONFIDENCE_MULTIPLIER * confidence_multiplier),
+    )
+
+    for row in matches:
+        context: dict[str, dict[str, object]] = {}
+        source_ids: list[str] = []
+
+        for alias in aliases:
+            node = row.get(alias)
+            if not isinstance(node, dict):
+                continue
+            node_ctx = dict(node)
+            context[alias] = node_ctx
+            node_id = node_ctx.get("id")
+            if node_id is not None:
+                source_ids.append(str(node_id))
+
+        source_ids = sorted(set(source_ids))
+        if not source_ids:
+            continue
+
+        derived_name = _render_template(name_template, context)
+        if not derived_name:
+            primary_alias = aliases[0]
+            fallback_name = context.get(primary_alias, {}).get("name")
+            if fallback_name:
+                derived_name = f"{fallback_name} ({output_entity_type})"
+            else:
+                continue
+
+        summary = _render_template(summary_template, context)
+        rendered_properties: dict[str, object] = {}
+        for key, value_template in property_templates.items():
+            if isinstance(value_template, str):
+                rendered_properties[key] = _render_template(value_template, context)
+            else:
+                rendered_properties[key] = value_template
+
+        fingerprint_source = "|".join(
+            [rule_id, output_entity_type.lower(), derived_name.lower(), *source_ids]
+        )
+        fingerprint = hashlib.sha256(fingerprint_source.encode("utf-8")).hexdigest()
+
+        existing = await graph.query(
+            """
+            MATCH (d:Entity {organizationId: $org_id, derivationFingerprint: $fingerprint})
+            WHERE d.validTo IS NULL
+            RETURN d.id as id
+            LIMIT 1
+            """,
+            {"org_id": organization_id, "fingerprint": fingerprint},
+        )
+        if existing:
+            continue
+
+        derived_id = f"drv_{uuid4().hex}"
+        node_props = {
+            "name": derived_name,
+            "summary": summary or None,
+            "entityType": output_entity_type,
+            "confidence": derived_confidence,
+            "derivationRule": rule_id,
+            "derivationSourceIds": source_ids,
+            "derivationFingerprint": fingerprint,
+            "derivationContext": rendered_properties or None,
+            "domain": rule_record.get("domain"),
+            "relevanceScore": 0.7,
+            "lastAccessedAt": now,
+            "accessCount": 0,
+            "validFrom": now,
+        }
+
+        await graph.create_node(
+            GraphNodeType.ENTITY,
+            derived_id,
+            organization_id,
+            node_props,
+        )
+
+        for source_id in source_ids:
+            await graph.query(
+                """
+                MATCH (d:Entity {id: $derived_id, organizationId: $org_id})
+                MATCH (s {id: $source_id})
+                WHERE s.organizationId = $org_id OR s.organization_id = $org_id
+                MERGE (d)-[r:DERIVED_FROM]->(s)
+                SET r.createdAt = COALESCE(r.createdAt, $now),
+                    r.ruleId = $rule_id
+                """,
+                {
+                    "derived_id": derived_id,
+                    "source_id": source_id,
+                    "org_id": organization_id,
+                    "rule_id": rule_id,
+                    "now": now,
+                },
+            )
+
+        derived_entities.append(
+            {
+                "id": derived_id,
+                "name": derived_name,
+                "entity_type": output_entity_type,
+                "rule_id": rule_id,
+                "source_ids": source_ids,
+                "confidence": derived_confidence,
+            }
+        )
+
+    return derived_entities

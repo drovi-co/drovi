@@ -28,7 +28,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { useEntitySuggestions } from "@/hooks/use-console-query";
+import {
+  type SavedSearch as PersistedSavedSearch,
+  useDeleteSavedSearch,
+  useEntitySuggestions,
+  useSaveSavedSearch,
+  useSavedSearches as useSavedSearchesQuery,
+} from "@/hooks/use-console-query";
 import {
   type AutocompleteSuggestion,
   type CursorContext,
@@ -708,18 +714,21 @@ export const ConsoleSearchBar = forwardRef<
 // SAVED SEARCHES (for future use)
 // =============================================================================
 
-export interface SavedSearch {
-  id: string;
-  name: string;
-  query: string;
-  createdAt: string;
-}
+export type SavedSearch = PersistedSavedSearch;
 
-export function useSavedSearches(_organizationId: string) {
-  // TODO: Implement saved searches persistence
+export function useSavedSearches(organizationId: string) {
+  const { data, isLoading, error } = useSavedSearchesQuery(organizationId);
+  const saveMutation = useSaveSavedSearch(organizationId);
+  const deleteMutation = useDeleteSavedSearch(organizationId);
+
   return {
-    savedSearches: [] as SavedSearch[],
-    saveSearch: (_name: string, _query: string) => undefined,
-    deleteSearch: (_id: string) => undefined,
+    savedSearches: data ?? [],
+    saveSearch: (name: string, query: string) =>
+      saveMutation.mutateAsync({ name, query }),
+    deleteSearch: (id: string) => deleteMutation.mutateAsync(id),
+    isLoading,
+    isSaving: saveMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+    error: error ?? saveMutation.error ?? deleteMutation.error,
   };
 }

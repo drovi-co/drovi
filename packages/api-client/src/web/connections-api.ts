@@ -40,19 +40,30 @@ export function createConnectionsApi(client: ApiClient) {
       organizationId: string,
       options?: { restrictedLabels?: string[]; restrictedChannels?: string[] }
     ): Promise<OAuthInitResponse> {
-      return client.requestJson<OAuthInitResponse>(
-        "/connections/oauth/initiate",
-        {
-          method: "POST",
-          body: {
-            connector_type: connectorType,
-            organization_id: organizationId,
-            redirect_uri: defaultRedirectUri(client),
-            ...options,
-          },
-          allowRetry: false,
-        }
-      );
+      // Compatibility wrapper:
+      // prefer canonical org-scoped OAuth initiation and adapt to legacy shape.
+      const response = await client.requestJson<{
+        auth_url: string;
+        state: string;
+        code_verifier?: string;
+      }>(`/org/connections/${encodeURIComponent(connectorType)}/connect`, {
+        method: "POST",
+        body: {
+          // kept for backward-compatible call sites, not used by canonical route
+          organization_id: organizationId,
+          redirect_uri: defaultRedirectUri(client),
+          restricted_labels: options?.restrictedLabels || [],
+          restricted_channels: options?.restrictedChannels || [],
+        },
+        allowRetry: false,
+      });
+
+      return {
+        auth_url: response.auth_url,
+        authorization_url: response.auth_url,
+        state: response.state,
+        code_verifier: response.code_verifier,
+      };
     },
 
     async triggerSync(

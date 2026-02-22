@@ -5,9 +5,16 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+base64 = "0.22"
 chrono.workspace = true
+reqwest.workspace = true
+rsa = "0.9"
 serde.workspace = true
 serde_json.workspace = true
+sha2 = { version = "0.10", features = ["oid"] }
 thiserror.workspace = true
 tracing.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true

@@ -77,6 +77,59 @@ export interface SourceInfo {
   role: string | null;
 }
 
+export interface UIOComment {
+  id: string;
+  uioId: string;
+  organizationId: string;
+  body: string;
+  authorUserId: string | null;
+  authorEmail: string | null;
+  authorLabel: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DecisionSupersessionChainItem {
+  id: string;
+  title: string;
+  statement: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+  supersededAt: string | null;
+  supersedesUioId: string | null;
+  supersededByUioId: string | null;
+  isCurrent: boolean;
+}
+
+export interface DecisionSupersessionChain {
+  anchorUioId: string;
+  chain: DecisionSupersessionChainItem[];
+}
+
+export interface LLMTrace {
+  provider: string;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  durationMs: number;
+  costUsd: number | null;
+  success: boolean;
+  error: string | null;
+}
+
+export interface CommitmentFollowUpDraft {
+  uioId: string;
+  recipientName: string | null;
+  recipientEmail: string | null;
+  subject: string;
+  body: string;
+  draft: string;
+  generationMode: "llm" | "fallback";
+  generatedAt: string;
+  trace: LLMTrace | null;
+  fallbackReason: string | null;
+}
+
 export interface UIO {
   id: string;
   type:
@@ -242,6 +295,105 @@ function transformSourceInfo(raw: Record<string, unknown>): SourceInfo {
     conversationId: (raw.conversation_id as string | null) ?? null,
     messageId: (raw.message_id as string | null) ?? null,
     role: (raw.role as string | null) ?? null,
+  };
+}
+
+export function transformUIOComment(raw: Record<string, unknown>): UIOComment {
+  return {
+    id: raw.id as string,
+    uioId: raw.uio_id as string,
+    organizationId: raw.organization_id as string,
+    body: (raw.body as string) ?? "",
+    authorUserId: (raw.author_user_id as string | null) ?? null,
+    authorEmail: (raw.author_email as string | null) ?? null,
+    authorLabel: (raw.author_label as string | null) ?? null,
+    createdAt:
+      (raw.created_at as string) ??
+      (raw.createdAt as string) ??
+      new Date().toISOString(),
+    updatedAt:
+      (raw.updated_at as string) ??
+      (raw.updatedAt as string) ??
+      new Date().toISOString(),
+  };
+}
+
+function transformDecisionSupersessionChainItem(
+  raw: Record<string, unknown>
+): DecisionSupersessionChainItem {
+  return {
+    id: raw.id as string,
+    title: ((raw.title as string | null) ?? "Untitled decision").trim(),
+    statement: (raw.statement as string | null) ?? null,
+    decidedAt: (raw.decided_at as string | null) ?? null,
+    createdAt:
+      (raw.created_at as string) ??
+      (raw.createdAt as string) ??
+      new Date().toISOString(),
+    supersededAt: (raw.superseded_at as string | null) ?? null,
+    supersedesUioId: (raw.supersedes_uio_id as string | null) ?? null,
+    supersededByUioId: (raw.superseded_by_uio_id as string | null) ?? null,
+    isCurrent: Boolean(raw.is_current ?? raw.isCurrent ?? false),
+  };
+}
+
+export function transformDecisionSupersessionChain(
+  raw: Record<string, unknown>
+): DecisionSupersessionChain {
+  const chainRaw = (raw.chain as Array<Record<string, unknown>> | null) ?? [];
+  return {
+    anchorUioId:
+      (raw.anchor_uio_id as string) ??
+      (raw.anchorUioId as string) ??
+      "",
+    chain: chainRaw.map(transformDecisionSupersessionChainItem),
+  };
+}
+
+export function transformCommitmentFollowUpDraft(
+  raw: Record<string, unknown>
+): CommitmentFollowUpDraft {
+  const traceRaw = (raw.trace as Record<string, unknown> | null) ?? null;
+  return {
+    uioId:
+      (raw.uio_id as string) ??
+      (raw.uioId as string) ??
+      "",
+    recipientName:
+      (raw.recipient_name as string | null) ??
+      (raw.recipientName as string | null) ??
+      null,
+    recipientEmail:
+      (raw.recipient_email as string | null) ??
+      (raw.recipientEmail as string | null) ??
+      null,
+    subject: ((raw.subject as string | null) ?? "").trim(),
+    body: ((raw.body as string | null) ?? "").trim(),
+    draft: ((raw.draft as string | null) ?? "").trim(),
+    generationMode:
+      ((raw.generation_mode as CommitmentFollowUpDraft["generationMode"]) ??
+        (raw.generationMode as CommitmentFollowUpDraft["generationMode"]) ??
+        "llm"),
+    generatedAt:
+      (raw.generated_at as string) ??
+      (raw.generatedAt as string) ??
+      new Date().toISOString(),
+    trace: traceRaw
+      ? {
+          provider: (traceRaw.provider as string) ?? "unknown",
+          model: (traceRaw.model as string) ?? "unknown",
+          promptTokens: (traceRaw.prompt_tokens as number) ?? 0,
+          completionTokens: (traceRaw.completion_tokens as number) ?? 0,
+          durationMs: (traceRaw.duration_ms as number) ?? 0,
+          costUsd: (traceRaw.cost_usd as number | null) ?? null,
+          success: Boolean(traceRaw.success ?? true),
+          error: (traceRaw.error as string | null) ?? null,
+        }
+      : null,
+    fallbackReason:
+      (raw.fallback_reason as string | null) ??
+      (raw.fallbackReason as string | null) ??
+      null,
   };
 }
 

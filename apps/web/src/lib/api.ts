@@ -31,6 +31,7 @@ import {
   createGraphApi,
   createIntelligenceApi,
   createOrgApi,
+  createOrgSecurityApi,
   createPatternsApi,
   createSearchApi,
   createSimulationsApi,
@@ -39,7 +40,6 @@ import {
   type SyncStatus,
 } from "@memorystack/api-client/web";
 import {
-  subscribeJsonEvents,
   subscribeNamedJsonEvents,
 } from "@memorystack/api-react";
 import { env } from "@memorystack/env/web";
@@ -54,6 +54,8 @@ export type {
   ActuationRecordSummary,
   AskResponse,
   ChangeRecord,
+  CommitmentFollowUpDraft,
+  DecisionSupersessionChain,
   ContactSummary,
   ContentSearchResult,
   DriveDocument,
@@ -65,6 +67,7 @@ export type {
   OrgInfo,
   OrgInvite,
   OrgMember,
+  OrgSecurityPolicy,
   PatternCandidate,
   SearchResult,
   SimulationOverridePayload,
@@ -72,6 +75,7 @@ export type {
   SyncEvent,
   TrustIndicator,
   UIO,
+  UIOComment,
   UIOListResponse,
   User,
 } from "@memorystack/api-client/web";
@@ -166,6 +170,7 @@ export async function apiFetch<T>(
 export const authAPI = createAuthApi(client);
 export const agentsAPI = createAgentsApi(client);
 export const orgAPI = createOrgApi(client);
+export const orgSecurityAPI = createOrgSecurityApi(client);
 export const connectionsAPI = createConnectionsApi(client);
 export const intelligenceAPI = createIntelligenceApi(client);
 export const askAPI = createAskApi(client);
@@ -249,16 +254,105 @@ export const orgSSE = {
   },
 };
 
+const SYNC_EVENT_TYPES = ["started", "progress", "completed", "failed"] as const;
+
+const INTELLIGENCE_EVENT_TYPES = [
+  "intelligence.commitment",
+  "intelligence.decision",
+  "intelligence.risk",
+  "intelligence.task",
+  "intelligence.claim",
+  "intelligence.question",
+  "intelligence.unknown",
+] as const;
+
+function decodeJwtPayload(
+  token: string
+): Record<string, unknown> | null {
+  const parts = token.split(".");
+  if (parts.length < 2 || !parts[1]) return null;
+  try {
+    const normalized = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    if (typeof window === "undefined" || typeof window.atob !== "function") {
+      return null;
+    }
+    const raw = window.atob(padded);
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function getSseOrganizationId(): string | null {
+  const token = getSessionToken();
+  if (!token) return null;
+  const payload = decodeJwtPayload(token);
+  if (!payload) return null;
+  const orgId = payload.org_id;
+  if (typeof orgId === "string" && orgId.trim()) return orgId;
+  const organizationId = payload.organization_id;
+  if (typeof organizationId === "string" && organizationId.trim()) {
+    return organizationId;
+  }
+  return null;
+}
+
+function mapSyncEventToStatus(event: SyncEvent): SyncStatus {
+  const normalizedEventType = String(event.event_type || "progress");
+  const status =
+    event.status ??
+    (normalizedEventType === "started"
+      ? "syncing"
+      : normalizedEventType === "completed"
+        ? "completed"
+        : normalizedEventType === "failed"
+          ? "failed"
+          : "syncing");
+  return {
+    connection_id: String(event.connection_id || ""),
+    status:
+      status === "completed" || status === "failed" || status === "idle"
+        ? status
+        : "syncing",
+    progress:
+      typeof event.progress === "number"
+        ? event.progress
+        : status === "completed"
+          ? 100
+          : 0,
+    records_synced:
+      typeof event.records_synced === "number" ? event.records_synced : 0,
+    total_records:
+      typeof event.total_records === "number" ? event.total_records : null,
+    error: typeof event.error === "string" ? event.error : null,
+    started_at:
+      normalizedEventType === "started"
+        ? event.timestamp ?? null
+        : null,
+    completed_at:
+      normalizedEventType === "completed" || normalizedEventType === "failed"
+        ? event.timestamp ?? null
+        : null,
+  };
+}
+
 export const sseAPI = {
   subscribeSyncProgress(
     connectionId: string,
     onEvent: (event: SyncStatus) => void,
     onError?: (error: Event) => void
   ): () => void {
-    const subscription = subscribeJsonEvents<SyncStatus>({
-      url: `${getApiBase()}/api/v1/sse/sync/${encodeURIComponent(connectionId)}`,
+    // Compatibility wrapper for the legacy /sse/sync endpoint:
+    // subscribe to canonical org sync SSE and filter by connection.
+    const subscription = subscribeNamedJsonEvents<SyncEvent>({
+      url: `${getApiBase()}/api/v1/org/connections/events`,
+      events: [...SYNC_EVENT_TYPES],
       withCredentials: true,
-      onMessage: onEvent,
+      onEvent: (_event, data) => {
+        if (data.connection_id !== connectionId) return;
+        onEvent(mapSyncEventToStatus(data));
+      },
       onError,
     });
 
@@ -269,9 +363,18 @@ export const sseAPI = {
     onEvent: (uio: unknown) => void,
     onError?: (error: Event) => void
   ): () => void {
+    // Compatibility wrapper for the legacy /sse/intelligence endpoint.
+    const organizationId = getSseOrganizationId();
+    if (!organizationId) {
+      onError?.(new Event("error"));
+      return () => {
+        // No-op.
+      };
+    }
+
     const subscription = subscribeNamedJsonEvents<unknown>({
-      url: `${getApiBase()}/api/v1/sse/intelligence`,
-      events: ["new_uio"],
+      url: `${getApiBase()}/api/v1/stream/intelligence?organization_id=${encodeURIComponent(organizationId)}`,
+      events: [...INTELLIGENCE_EVENT_TYPES],
       withCredentials: true,
       onEvent: (_event, data) => onEvent(data),
       onError,

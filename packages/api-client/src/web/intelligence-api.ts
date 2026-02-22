@@ -1,7 +1,19 @@
 import type { ApiClient } from "../http/client";
 
-import type { Evidence, UIO, UIOListResponse } from "./models";
-import { transformUIO } from "./models";
+import type {
+  CommitmentFollowUpDraft,
+  DecisionSupersessionChain,
+  Evidence,
+  UIO,
+  UIOComment,
+  UIOListResponse,
+} from "./models";
+import {
+  transformCommitmentFollowUpDraft,
+  transformDecisionSupersessionChain,
+  transformUIO,
+  transformUIOComment,
+} from "./models";
 
 export function createIntelligenceApi(client: ApiClient) {
   return {
@@ -42,6 +54,24 @@ export function createIntelligenceApi(client: ApiClient) {
         `/uios/${uioId}`
       );
       return transformUIO(raw);
+    },
+
+    async listComments(uioId: string): Promise<UIOComment[]> {
+      const raw = await client.requestJson<Array<Record<string, unknown>>>(
+        `/uios/${uioId}/comments`
+      );
+      return raw.map(transformUIOComment);
+    },
+
+    async addComment(uioId: string, body: string): Promise<UIOComment> {
+      const raw = await client.requestJson<Record<string, unknown>>(
+        `/uios/${uioId}/comments`,
+        {
+          method: "POST",
+          body: { body },
+        }
+      );
+      return transformUIOComment(raw);
     },
 
     async updateStatus(uioId: string, status: string): Promise<UIO> {
@@ -170,6 +200,29 @@ export function createIntelligenceApi(client: ApiClient) {
         }
       );
       return transformUIO(raw);
+    },
+
+    async getDecisionSupersessionChain(
+      uioId: string
+    ): Promise<DecisionSupersessionChain> {
+      const raw = await client.requestJson<Record<string, unknown>>(
+        `/uios/${uioId}/decision-supersession-chain`
+      );
+      return transformDecisionSupersessionChain(raw);
+    },
+
+    async generateCommitmentFollowUp(
+      uioId: string,
+      tone: "friendly" | "neutral" | "firm" = "neutral"
+    ): Promise<CommitmentFollowUpDraft> {
+      const raw = await client.requestJson<Record<string, unknown>>(
+        `/uios/${uioId}/commitment-follow-up`,
+        {
+          method: "POST",
+          body: { tone },
+        }
+      );
+      return transformCommitmentFollowUpDraft(raw);
     },
 
     async archive(uioId: string): Promise<UIO> {

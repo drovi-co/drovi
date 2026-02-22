@@ -11,6 +11,7 @@ This ensures source evidence is queryable from both systems.
 import json
 import time
 import re
+from email.utils import getaddresses
 from datetime import datetime, timedelta
 from uuid import uuid4
 
@@ -53,6 +54,131 @@ def _normalize_title(title: str | None) -> str:
     cleaned = re.sub(r"\s+", " ", cleaned)
     cleaned = re.sub(r"[^\w\s\-]", "", cleaned)
     return cleaned
+
+
+def _normalize_email(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    email = value.strip().lower()
+    if not email or "@" not in email:
+        return None
+    return email
+
+
+def _extract_address_pairs(value: object) -> list[tuple[str | None, str]]:
+    pairs: list[tuple[str | None, str]] = []
+    if value is None:
+        return pairs
+
+    if isinstance(value, str):
+        for name, email in getaddresses([value]):
+            normalized = _normalize_email(email)
+            if normalized:
+                pairs.append((name.strip() or None, normalized))
+        return pairs
+
+    if isinstance(value, list):
+        for item in value:
+            if isinstance(item, str):
+                pairs.extend(_extract_address_pairs(item))
+                continue
+            if isinstance(item, dict):
+                raw_email = (
+                    item.get("email")
+                    or item.get("address")
+                    or item.get("value")
+                    or item.get("id")
+                )
+                normalized = _normalize_email(raw_email)
+                if not normalized:
+                    continue
+                raw_name = (
+                    item.get("name")
+                    or item.get("display_name")
+                    or item.get("displayName")
+                    or item.get("full_name")
+                )
+                name = raw_name.strip() if isinstance(raw_name, str) and raw_name.strip() else None
+                pairs.append((name, normalized))
+        return pairs
+
+    return pairs
+
+
+def _extract_message_recipients(
+    *,
+    metadata: dict | None,
+    sender_email: str | None,
+    fallback_user_email: str | None,
+    fallback_user_name: str | None,
+) -> list[dict[str, str | None]]:
+    recipients: list[dict[str, str | None]] = []
+    seen: set[str] = set()
+    sender = _normalize_email(sender_email)
+
+    def _add_pair(name: str | None, email: str | None) -> None:
+        normalized = _normalize_email(email)
+        if not normalized:
+            return
+        if sender and normalized == sender:
+            return
+        if normalized in seen:
+            return
+        seen.add(normalized)
+        recipients.append({"email": normalized, "name": name})
+
+    def _add_from_collection(values: object, names: object = None) -> None:
+        if isinstance(values, list) and isinstance(names, list):
+            for idx, email in enumerate(values):
+                name = names[idx] if idx < len(names) and isinstance(names[idx], str) else None
+                _add_pair(name, email if isinstance(email, str) else None)
+            return
+        for name, email in _extract_address_pairs(values):
+            _add_pair(name, email)
+
+    metadata_obj = metadata if isinstance(metadata, dict) else {}
+    unified = metadata_obj.get("unified") if isinstance(metadata_obj.get("unified"), dict) else {}
+    raw = metadata_obj.get("raw") if isinstance(metadata_obj.get("raw"), dict) else {}
+
+    # Canonical normalized payload (connectors.normalization) first.
+    _add_from_collection(unified.get("recipient_emails"), unified.get("recipient_names"))
+    _add_from_collection(unified.get("cc_emails"))
+
+    # Raw connector payload fallback keys.
+    for key in (
+        "recipient_emails",
+        "cc_emails",
+        "to_recipients",
+        "cc_recipients",
+        "bcc_recipients",
+        "participants",
+        "all_participants",
+        "to",
+        "cc",
+        "bcc",
+    ):
+        _add_from_collection(raw.get(key))
+
+    # Top-level metadata fallback keys.
+    _add_from_collection(metadata_obj.get("recipient_emails"), metadata_obj.get("recipient_names"))
+    _add_from_collection(metadata_obj.get("cc_emails"))
+    _add_from_collection(metadata_obj.get("to"))
+    _add_from_collection(metadata_obj.get("cc"))
+    _add_from_collection(metadata_obj.get("bcc"))
+    _add_from_collection(metadata_obj.get("participants"))
+
+    # Legacy fallback if we still have no recipients.
+    if not recipients:
+        fallback_email = _normalize_email(fallback_user_email)
+        if fallback_email and (not sender or fallback_email != sender):
+            recipients.append(
+                {
+                    "email": fallback_email,
+                    "name": fallback_user_name.strip() if isinstance(fallback_user_name, str) and fallback_user_name.strip() else None,
+                }
+            )
+
+    return recipients
 
 
 async def _link_related_conversations(
@@ -292,10 +418,12 @@ async def persist_to_postgresql(
                 # Generate external_id from message.id or index
                 external_message_id = message.id or f"{state.input.conversation_id}_{i}"
 
-                # Build recipients list (placeholder - would need to be extracted from metadata)
-                recipients = []
-                if state.input.user_email and not message.is_from_user:
-                    recipients = [{"email": state.input.user_email, "name": state.input.user_name}]
+                recipients = _extract_message_recipients(
+                    metadata=state.input.metadata,
+                    sender_email=message.sender_email,
+                    fallback_user_email=state.input.user_email,
+                    fallback_user_name=state.input.user_name,
+                )
 
                 # Get subject from metadata
                 subject = state.input.metadata.get("subject") if state.input.metadata else None

@@ -297,38 +297,58 @@ class TestDecayStatsEndpoint:
         """Test getting decay statistics."""
         org_id = factory.organization_id()
 
-        # The endpoint returns placeholder data without external calls
-        response = await async_client.get(
-            "/api/v1/monitoring/decay-stats",
-            params={"organization_id": org_id},
-        )
+        with patch("src.api.routes.monitoring.get_graph_client") as mock_get_graph:
+            mock_graph = AsyncMock()
+            mock_graph.query.side_effect = [
+                [{"count": 12}],  # total_nodes
+                [{"count": 4}],  # high_relevance
+                [{"count": 5}],  # medium_relevance
+                [{"count": 3}],  # low_relevance
+                [{"count": 2}],  # archived
+                [{"decayComputedAt": "2026-02-20T14:30:00Z"}],  # last_decay_run
+            ]
+            mock_get_graph.return_value = mock_graph
+
+            response = await async_client.get(
+                "/api/v1/monitoring/decay-stats",
+                params={"organization_id": org_id},
+            )
 
         assert response.status_code == 200
         data = response.json()
 
-        # Check response structure matches DecayStatsResponse model
-        assert "organization_id" in data
-        assert "total_nodes" in data
-        assert "high_relevance" in data
-        assert "medium_relevance" in data
-        assert "low_relevance" in data
-        assert "archived" in data
-        assert "last_decay_run" in data
+        assert data["organization_id"] == org_id
+        assert data["total_nodes"] == 12
+        assert data["high_relevance"] == 4
+        assert data["medium_relevance"] == 5
+        assert data["low_relevance"] == 3
+        assert data["archived"] == 2
+        assert data["last_decay_run"] is not None
 
     async def test_decay_stats_without_run(self, async_client, factory):
         """Test decay stats when no decay has run yet."""
         org_id = factory.organization_id()
 
-        # The endpoint returns placeholder data with last_decay_run=None
-        response = await async_client.get(
-            "/api/v1/monitoring/decay-stats",
-            params={"organization_id": org_id},
-        )
+        with patch("src.api.routes.monitoring.get_graph_client") as mock_get_graph:
+            mock_graph = AsyncMock()
+            mock_graph.query.side_effect = [
+                [{"count": 0}],  # total_nodes
+                [{"count": 0}],  # high_relevance
+                [{"count": 0}],  # medium_relevance
+                [{"count": 0}],  # low_relevance
+                [{"count": 0}],  # archived
+                [],  # last_decay_run
+            ]
+            mock_get_graph.return_value = mock_graph
+
+            response = await async_client.get(
+                "/api/v1/monitoring/decay-stats",
+                params={"organization_id": org_id},
+            )
 
         assert response.status_code == 200
         data = response.json()
 
-        # Placeholder implementation returns None for last_decay_run
         assert data["last_decay_run"] is None
 
 
@@ -453,7 +473,7 @@ class TestMonitoringIntegration:
             ready_response = await async_client.get("/api/v1/monitoring/health/ready")
             assert ready_response.status_code != 404
 
-        # Metrics endpoints don't need mocking - they return placeholder data
+        # Metrics endpoints should remain available in all environments
         metrics_response = await async_client.get("/api/v1/monitoring/metrics")
         # May return 501 if prometheus_client not installed, but not 404
         assert metrics_response.status_code != 404

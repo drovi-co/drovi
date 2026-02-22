@@ -259,7 +259,15 @@ pub async fn verify_apple_identity(
     State(state): State<SharedAppState>,
     Json(payload): Json<AppleVerifyRequest>,
 ) -> Result<Json<AppleVerifyResponse>, AppError> {
-    let assertion = verify_apple_identity_token(&payload.identity_token).map_err(map_auth_error)?;
+    let expected_audience = state
+        .config
+        .apple_client_id
+        .as_deref()
+        .ok_or_else(|| AppError::configuration("missing IMPERIUM_APPLE_CLIENT_ID"))?;
+
+    let assertion = verify_apple_identity_token(&payload.identity_token, expected_audience)
+        .await
+        .map_err(map_auth_error)?;
 
     emit_audit(
         &state,
@@ -288,6 +296,12 @@ fn map_auth_error(error: AuthDomainError) -> AppError {
         AuthDomainError::InvalidIdentityToken
         | AuthDomainError::InvalidSessionToken
         | AuthDomainError::InvalidTtl => AppError::validation(error.to_string()),
+        AuthDomainError::AppleIdentityAudienceNotConfigured => {
+            AppError::configuration(error.to_string())
+        }
+        AuthDomainError::AppleIdentityProviderUnavailable => {
+            AppError::dependency(error.to_string())
+        }
     }
 }
 

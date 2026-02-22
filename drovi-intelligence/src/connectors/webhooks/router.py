@@ -190,9 +190,9 @@ async def notion_webhook(request: Request):
     )
 
     # Queue for async processing
-    await _queue_notion_event(body)
+    queue_result = await _queue_notion_event(body)
 
-    return {"ok": True}
+    return {"ok": True, **queue_result}
 
 
 # =============================================================================
@@ -311,10 +311,12 @@ async def github_webhook(
     return {"ok": True, "id": event_id, "created": created}
 
 
-async def _queue_notion_event(payload: dict[str, Any]) -> None:
+async def _queue_notion_event(payload: dict[str, Any]) -> dict[str, Any]:
     """Queue a Notion event for async processing."""
-    # Placeholder for Notion handler
-    logger.info("Notion event queued for processing", event=payload.get("type"))
+    from src.connectors.webhooks.handlers.notion import NotionWebhookHandler
+
+    handler = NotionWebhookHandler()
+    return await handler.handle_event(payload)
 
 
 # =============================================================================
@@ -342,6 +344,11 @@ async def microsoft_webhook(
 
     # Process change notifications
     value = body.get("value", [])
+    queued = 0
+    resolved_connections = 0
+    duplicates = 0
+    errors = 0
+
     for notification in value:
         logger.info(
             "Microsoft Graph notification received",
@@ -350,18 +357,28 @@ async def microsoft_webhook(
         )
 
         # Queue for async processing
-        await _queue_microsoft_notification(notification)
+        result = await _queue_microsoft_notification(notification)
+        queued += int(result.get("queued") or 0)
+        resolved_connections += int(result.get("resolved_connections") or 0)
+        duplicates += int(result.get("duplicates") or 0)
+        errors += int(result.get("errors") or 0)
 
-    return {"ok": True}
+    return {
+        "ok": True,
+        "notifications": len(value),
+        "queued": queued,
+        "resolved_connections": resolved_connections,
+        "duplicates": duplicates,
+        "errors": errors,
+    }
 
 
-async def _queue_microsoft_notification(notification: dict[str, Any]) -> None:
+async def _queue_microsoft_notification(notification: dict[str, Any]) -> dict[str, Any]:
     """Queue a Microsoft notification for async processing."""
-    # Placeholder for Microsoft handler
-    logger.info(
-        "Microsoft notification queued for processing",
-        change_type=notification.get("changeType"),
-    )
+    from src.connectors.webhooks.handlers.microsoft import MicrosoftWebhookHandler
+
+    handler = MicrosoftWebhookHandler()
+    return await handler.handle_notification(notification)
 
 
 # =============================================================================

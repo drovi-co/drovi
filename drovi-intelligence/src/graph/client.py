@@ -11,6 +11,7 @@ Provides:
 
 import json
 from datetime import datetime
+import re
 from typing import Any
 
 import structlog
@@ -32,6 +33,24 @@ VECTOR_EMBEDDING_LABELS = {
     "Claim",
     "DocumentChunk",
 }
+
+FULLTEXT_INDEX_SPECS: dict[str, list[str]] = {
+    "UIO": ["canonicalTitle", "canonicalDescription"],
+    "Commitment": ["title", "description"],
+    "Decision": ["title", "description"],
+    "Topic": ["title", "description"],
+    "Project": ["title", "description"],
+    "Contact": ["displayName", "primaryEmail", "name", "email", "company"],
+    "Message": ["text", "subject", "content"],
+    "TranscriptSegment": ["text"],
+    "DocumentChunk": ["text"],
+    "Entity": ["name", "summary"],
+    "Episode": ["name", "content", "summary"],
+    "RawMessage": ["content", "subject"],
+    "ThreadContext": ["subject"],
+}
+
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 # Global client instance
 _graph_client: "DroviGraph | None" = None
@@ -269,10 +288,24 @@ class DroviGraph:
         Note: FalkorDB vector index support requires specific configuration.
         Vector search falls back to brute-force if indexes aren't available.
         """
-        logger.info(
-            "Vector indexes: default statements will be applied if enabled. "
-            "Basic functionality works without vector indexes."
-        )
+        from src.search.embeddings import get_embedding_dimension
+
+        dimension = get_embedding_dimension()
+        for label in sorted(VECTOR_EMBEDDING_LABELS):
+            try:
+                await self.create_vector_index(
+                    label=label,
+                    prop="embedding",
+                    dimension=dimension,
+                    similarity="cosine",
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to create vector index",
+                    label=label,
+                    dimension=dimension,
+                    error=str(exc),
+                )
 
     async def _create_fulltext_indexes(self) -> None:
         """
@@ -281,10 +314,16 @@ class DroviGraph:
         Note: FalkorDB fulltext search uses different syntax than Neo4j.
         Basic string matching still works without fulltext indexes.
         """
-        logger.info(
-            "Fulltext indexes: default statements will be applied if enabled. "
-            "Basic functionality works without fulltext indexes."
-        )
+        for label, properties in FULLTEXT_INDEX_SPECS.items():
+            try:
+                await self.create_fulltext_index(label=label, properties=properties)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to create fulltext index",
+                    label=label,
+                    properties=properties,
+                    error=str(exc),
+                )
 
     async def _apply_custom_indexes(self, statements: list[str]) -> None:
         """Apply custom FalkorDB index statements (best-effort)."""
@@ -316,31 +355,94 @@ class DroviGraph:
         dimension: int = 1536,
         similarity: str = "cosine",
     ) -> None:
-        """
-        Create a vector index for semantic search.
+        """Create a vector index for semantic search (best-effort across Falkor variants)."""
+        safe_label = self._ensure_identifier(label, kind="label")
+        safe_prop = self._ensure_identifier(prop, kind="property")
+        dim = max(1, int(dimension))
+        similarity_function = similarity.lower()
+        if similarity_function not in {"cosine", "euclidean"}:
+            similarity_function = "cosine"
+        metric = "COSINE" if similarity_function == "cosine" else "L2"
 
-        Note: FalkorDB vector index creation differs from Neo4j.
-        This is a placeholder for future FalkorDB-specific implementation.
-        """
-        logger.debug(
-            "Vector index creation skipped (FalkorDB syntax differs)",
-            label=label,
-            property=prop,
-            dimension=dimension,
-        )
+        statements = [
+            (
+                f"CREATE VECTOR INDEX FOR (n:{safe_label}) ON (n.{safe_prop}) "
+                f"OPTIONS {{dimension: {dim}, similarityFunction: '{similarity_function}'}}"
+            ),
+            (
+                "CALL db.idx.vector.createNodeIndex("
+                f"'{safe_label}', '{safe_prop}', 'HNSW', "
+                f"{{DIM: {dim}, DISTANCE_METRIC: '{metric}'}})"
+            ),
+        ]
+
+        last_error: Exception | None = None
+        for stmt in statements:
+            try:
+                await self.query(stmt, log_errors=False)
+                logger.info(
+                    "Created vector index",
+                    label=safe_label,
+                    property=safe_prop,
+                    dimension=dim,
+                    similarity=similarity_function,
+                )
+                return
+            except Exception as exc:
+                text = str(exc).lower()
+                if "already index" in text or "already exists" in text:
+                    logger.debug(
+                        "Vector index already exists",
+                        label=safe_label,
+                        property=safe_prop,
+                    )
+                    return
+                last_error = exc
+
+        if last_error is not None:
+            raise last_error
 
     async def create_fulltext_index(self, label: str, properties: list[str]) -> None:
         """
         Create a full-text index for keyword search.
 
-        Note: FalkorDB uses RediSearch for fulltext indexing.
-        This is a placeholder for future FalkorDB-specific implementation.
+        Uses RediSearch-style fulltext index creation with a Cypher fallback.
         """
-        logger.debug(
-            "Fulltext index creation skipped (FalkorDB syntax differs)",
-            label=label,
-            properties=properties,
-        )
+        safe_label = self._ensure_identifier(label, kind="label")
+        safe_props = [self._ensure_identifier(p, kind="property") for p in properties if p]
+        if not safe_props:
+            return
+
+        props_args = ", ".join(f"'{prop}'" for prop in safe_props)
+        cypher_props = ", ".join(f"n.{prop}" for prop in safe_props)
+        statements = [
+            f"CALL db.idx.fulltext.createNodeIndex('{safe_label}', {props_args})",
+            f"CREATE FULLTEXT INDEX FOR (n:{safe_label}) ON EACH [{cypher_props}]",
+        ]
+
+        last_error: Exception | None = None
+        for stmt in statements:
+            try:
+                await self.query(stmt, log_errors=False)
+                logger.info(
+                    "Created fulltext index",
+                    label=safe_label,
+                    properties=safe_props,
+                )
+                return
+            except Exception as exc:
+                text = str(exc).lower()
+                if "already index" in text or "already exists" in text:
+                    logger.debug(
+                        "Fulltext index already exists",
+                        label=safe_label,
+                        properties=safe_props,
+                    )
+                    return
+                last_error = exc
+
+        if last_error is not None:
+            raise last_error
 
     # =========================================================================
     # Node Operations
@@ -634,6 +736,12 @@ class DroviGraph:
     # =========================================================================
     # Utility Methods
     # =========================================================================
+
+    def _ensure_identifier(self, value: str, *, kind: str) -> str:
+        """Validate graph label/property identifiers to prevent query injection."""
+        if not value or not _IDENTIFIER_RE.match(value):
+            raise ValueError(f"Invalid {kind}: {value!r}")
+        return value
 
     def _dict_to_cypher(self, d: dict[str, Any]) -> str:
         """Convert a dictionary to Cypher property string."""

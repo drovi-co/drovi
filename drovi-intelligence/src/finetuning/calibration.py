@@ -12,14 +12,16 @@ From the "Trillion Dollar Hole" research:
 - Measure calibration to know when to trust predictions
 """
 
-import math
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 from uuid import uuid4
 
 import structlog
 from pydantic import BaseModel, Field
+
+from src.db import get_raw_query_pool
+from src.db.rls import rls_context
 
 logger = structlog.get_logger()
 
@@ -115,9 +117,52 @@ class CalibrationService:
 
     async def _ensure_db(self):
         """Lazy-load database connection."""
-        if self._db is None:
-            # Import and create session
-            pass  # Will be connected via dependency injection
+        if self._db is None or not hasattr(self._db, "acquire"):
+            self._db = await get_raw_query_pool()
+        return self._db
+
+    @staticmethod
+    def _parse_datetime(value: Any) -> datetime | None:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized:
+                return None
+            try:
+                return datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+        return None
+
+    @classmethod
+    def _row_to_prediction(cls, row: dict[str, Any]) -> Prediction | None:
+        try:
+            prediction_type = PredictionType(str(row.get("prediction_type")))
+            outcome_status = OutcomeStatus(str(row.get("outcome_status") or OutcomeStatus.PENDING.value))
+        except ValueError:
+            return None
+
+        return Prediction(
+            id=str(row.get("id") or ""),
+            organization_id=str(row.get("organization_id") or ""),
+            uio_id=row.get("uio_id"),
+            prediction_type=prediction_type,
+            predicted_outcome=row.get("predicted_outcome") or {},
+            confidence=float(row.get("confidence") or 0.0),
+            predicted_at=cls._parse_datetime(row.get("predicted_at")) or datetime.now(timezone.utc),
+            evaluate_by=cls._parse_datetime(row.get("evaluate_by")),
+            actual_outcome=row.get("actual_outcome"),
+            outcome_status=outcome_status,
+            outcome_recorded_at=cls._parse_datetime(row.get("outcome_recorded_at")),
+            outcome_source=row.get("outcome_source"),
+            calibration_error=float(row["calibration_error"]) if row.get("calibration_error") is not None else None,
+            brier_score=float(row["brier_score"]) if row.get("brier_score") is not None else None,
+            model_used=row.get("model_used"),
+            extraction_context=row.get("extraction_context"),
+        )
 
     async def record_prediction(
         self,
@@ -425,17 +470,122 @@ class CalibrationService:
 
     async def _store_prediction(self, prediction: Prediction) -> None:
         """Store prediction in PostgreSQL."""
-        # This would use the db session to insert
-        # For now, this is a placeholder
-        pass
+        pool = await self._ensure_db()
+        query = """
+            INSERT INTO intelligence_prediction (
+                id,
+                organization_id,
+                uio_id,
+                prediction_type,
+                predicted_outcome,
+                confidence,
+                predicted_at,
+                evaluate_by,
+                actual_outcome,
+                outcome_status,
+                outcome_recorded_at,
+                outcome_source,
+                calibration_error,
+                brier_score,
+                model_used,
+                extraction_context,
+                created_at,
+                updated_at
+            ) VALUES (
+                $1, $2, $3, $4, $5::jsonb, $6, $7, $8,
+                $9::jsonb, $10, $11, $12, $13, $14, $15, $16::jsonb,
+                NOW(), NOW()
+            )
+        """
+
+        with rls_context(prediction.organization_id, is_internal=True):
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    query,
+                    prediction.id,
+                    prediction.organization_id,
+                    prediction.uio_id,
+                    prediction.prediction_type.value,
+                    prediction.predicted_outcome,
+                    float(min(1.0, max(0.0, prediction.confidence))),
+                    prediction.predicted_at,
+                    prediction.evaluate_by,
+                    prediction.actual_outcome,
+                    prediction.outcome_status.value,
+                    prediction.outcome_recorded_at,
+                    prediction.outcome_source,
+                    prediction.calibration_error,
+                    prediction.brier_score,
+                    prediction.model_used,
+                    prediction.extraction_context,
+                )
 
     async def _update_prediction(self, prediction: Prediction) -> None:
         """Update prediction in PostgreSQL."""
-        pass
+        pool = await self._ensure_db()
+        query = """
+            UPDATE intelligence_prediction
+            SET
+                actual_outcome = $1::jsonb,
+                outcome_status = $2,
+                outcome_recorded_at = $3,
+                outcome_source = $4,
+                calibration_error = $5,
+                brier_score = $6,
+                updated_at = NOW()
+            WHERE id = $7
+              AND organization_id = $8
+        """
+
+        with rls_context(prediction.organization_id, is_internal=True):
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    query,
+                    prediction.actual_outcome,
+                    prediction.outcome_status.value,
+                    prediction.outcome_recorded_at,
+                    prediction.outcome_source,
+                    prediction.calibration_error,
+                    prediction.brier_score,
+                    prediction.id,
+                    prediction.organization_id,
+                )
 
     async def _get_prediction(self, prediction_id: str) -> Prediction | None:
         """Get prediction by ID."""
-        pass
+        pool = await self._ensure_db()
+        query = """
+            SELECT
+                id,
+                organization_id,
+                uio_id,
+                prediction_type,
+                predicted_outcome,
+                confidence,
+                predicted_at,
+                evaluate_by,
+                actual_outcome,
+                outcome_status,
+                outcome_recorded_at,
+                outcome_source,
+                calibration_error,
+                brier_score,
+                model_used,
+                extraction_context
+            FROM intelligence_prediction
+            WHERE id = $1
+            LIMIT 1
+        """
+
+        with rls_context(None, is_internal=True):
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(query, prediction_id)
+        if not row:
+            return None
+        prediction = self._row_to_prediction(dict(row))
+        if prediction is None:
+            logger.warning("Invalid prediction row", prediction_id=prediction_id)
+        return prediction
 
     async def _get_resolved_predictions(
         self,
@@ -444,7 +594,50 @@ class CalibrationService:
         days: int,
     ) -> list[Prediction]:
         """Get resolved predictions for calibration analysis."""
-        return []
+        pool = await self._ensure_db()
+        cutoff = datetime.now(timezone.utc) - timedelta(days=max(1, int(days)))
+        params: list[Any] = [organization_id, cutoff]
+        type_filter = ""
+        if prediction_type is not None:
+            params.append(prediction_type.value)
+            type_filter = "AND prediction_type = $3"
+
+        query = f"""
+            SELECT
+                id,
+                organization_id,
+                uio_id,
+                prediction_type,
+                predicted_outcome,
+                confidence,
+                predicted_at,
+                evaluate_by,
+                actual_outcome,
+                outcome_status,
+                outcome_recorded_at,
+                outcome_source,
+                calibration_error,
+                brier_score,
+                model_used,
+                extraction_context
+            FROM intelligence_prediction
+            WHERE organization_id = $1
+              AND outcome_status IN ('confirmed', 'disconfirmed', 'inconclusive', 'expired')
+              AND COALESCE(outcome_recorded_at, predicted_at) >= $2
+              {type_filter}
+            ORDER BY COALESCE(outcome_recorded_at, predicted_at) DESC
+        """
+
+        with rls_context(organization_id, is_internal=True):
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(query, *params)
+
+        predictions: list[Prediction] = []
+        for row in rows:
+            parsed = self._row_to_prediction(dict(row))
+            if parsed is not None:
+                predictions.append(parsed)
+        return predictions
 
 
 # Singleton instance

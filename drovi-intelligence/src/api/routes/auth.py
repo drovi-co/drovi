@@ -12,6 +12,7 @@ import hashlib
 import secrets
 from base64 import urlsafe_b64encode
 from datetime import datetime, timezone, timedelta
+from typing import Any
 from urllib.parse import urlencode
 
 import httpx
@@ -24,12 +25,14 @@ from src.auth.pilot_accounts import (
     AuthError,
     OAuthUserInfo,
     PilotToken,
+    create_jwt,
     handle_email_login,
     handle_email_signup,
     handle_oauth_callback,
     verify_jwt,
 )
 from src.config import get_settings
+from src.notifications.resend import send_resend_email
 from src.security.org_policy import get_org_security_policy
 
 logger = structlog.get_logger()
@@ -141,6 +144,24 @@ class UserResponse(BaseModel):
     org_default_locale: str = "en"
 
 
+class OrganizationMembershipResponse(BaseModel):
+    """Organization membership visible to the authenticated user."""
+
+    id: str
+    name: str
+    role: str
+    status: str
+    region: str | None = None
+    created_at: datetime | None = None
+
+
+class OrganizationsResponse(BaseModel):
+    """List of organizations for the current authenticated user."""
+
+    organizations: list[OrganizationMembershipResponse]
+    active_org_id: str
+
+
 class CallbackQuery(BaseModel):
     """OAuth callback query parameters."""
 
@@ -181,6 +202,47 @@ class UpdateLocaleRequest(BaseModel):
     locale: str | None = None
 
 
+class SwitchOrganizationRequest(BaseModel):
+    """Switch active organization for current session."""
+
+    organization_id: str
+
+
+class SwitchOrganizationResponse(BaseModel):
+    """Session response after switching organization."""
+
+    session_token: str
+    active_org_id: str
+
+
+class PasswordResetRequestBody(BaseModel):
+    """Request password reset email for an account."""
+
+    email: str
+
+
+class PasswordResetRequestResponse(BaseModel):
+    """Generic reset-request response (non-enumerating)."""
+
+    ok: bool = True
+    message: str = "If the account exists, a reset link has been sent."
+    reset_token: str | None = None
+    reset_link: str | None = None
+
+
+class PasswordResetConfirmBody(BaseModel):
+    """Confirm password reset with token + new password."""
+
+    token: str
+    new_password: str
+
+
+class PasswordResetConfirmResponse(BaseModel):
+    """Password reset completion response."""
+
+    ok: bool = True
+
+
 # =============================================================================
 # Cookie Configuration
 # =============================================================================
@@ -208,6 +270,77 @@ def _set_session_cookie(response: Response, token: str) -> None:
 def _clear_session_cookie(response: Response) -> None:
     """Clear session cookie."""
     response.delete_cookie(key=COOKIE_NAME, path="/")
+
+
+# =============================================================================
+# Organization Helpers
+# =============================================================================
+
+
+async def _list_user_organizations(user_id: str) -> list[OrganizationMembershipResponse]:
+    """List active organizations for a user with membership roles."""
+    from src.db.client import get_db_session
+    from src.db.rls import rls_context
+
+    with rls_context("internal", is_internal=True):
+        async with get_db_session() as session:
+            result = await session.execute(
+                text(
+                    """
+                    SELECT
+                        o.id,
+                        o.name,
+                        o.pilot_status,
+                        o.region,
+                        o.created_at,
+                        m.role
+                    FROM memberships m
+                    JOIN organizations o ON o.id = m.org_id
+                    WHERE m.user_id = :user_id
+                      AND o.pilot_status = 'active'
+                    ORDER BY m.created_at ASC
+                    """
+                ),
+                {"user_id": user_id},
+            )
+            rows = result.fetchall()
+
+    return [
+        OrganizationMembershipResponse(
+            id=row.id,
+            name=row.name,
+            role=row.role,
+            status=row.pilot_status,
+            region=row.region,
+            created_at=row.created_at,
+        )
+        for row in rows
+    ]
+
+
+def _token_auth_method_for_jwt(token: PilotToken) -> str:
+    """Map PilotToken auth method to JWT auth method."""
+    return "password" if token.auth_method == "password" else "sso"
+
+
+def _hash_reset_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _hash_password(password: str) -> str:
+    """Hash a password using PBKDF2-SHA256."""
+    salt = secrets.token_hex(16)
+    iterations = 100000
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), iterations)
+    return f"pbkdf2:sha256:{iterations}${salt}${dk.hex()}"
+
+
+def _build_reset_link(token: str) -> str | None:
+    settings = get_settings()
+    if not settings.web_app_url:
+        return None
+    base = settings.web_app_url.rstrip("/")
+    return f"{base}/reset-password?token={token}"
 
 
 # =============================================================================
@@ -599,6 +732,271 @@ async def get_me(
     )
 
 
+@router.get("/organizations", response_model=OrganizationsResponse)
+async def list_my_organizations(
+    token: PilotToken = Depends(require_pilot_auth),
+) -> OrganizationsResponse:
+    """List active organizations for the authenticated user."""
+    organizations = await _list_user_organizations(token.sub)
+    if not organizations:
+        raise HTTPException(status_code=403, detail="No active organization memberships found")
+
+    active_org_id = token.org_id
+    if not any(org.id == active_org_id for org in organizations):
+        active_org_id = organizations[0].id
+
+    return OrganizationsResponse(
+        organizations=organizations,
+        active_org_id=active_org_id,
+    )
+
+
+@router.post("/switch-organization", response_model=SwitchOrganizationResponse)
+async def switch_organization(
+    request: SwitchOrganizationRequest,
+    response: Response,
+    token: PilotToken = Depends(require_pilot_auth),
+) -> SwitchOrganizationResponse:
+    """
+    Switch the active organization for the current authenticated session.
+
+    Issues a fresh session JWT scoped to the target organization and sets it as
+    the current cookie session.
+    """
+    organizations = await _list_user_organizations(token.sub)
+    target = next((org for org in organizations if org.id == request.organization_id), None)
+    if not target:
+        raise HTTPException(status_code=403, detail="Not a member of the requested organization")
+
+    if token.auth_method == "password":
+        org_policy = await get_org_security_policy(target.id)
+        if not org_policy.allows_password_auth(get_settings().environment):
+            raise HTTPException(
+                status_code=403,
+                detail="Password sessions are disabled for this organization. Use SSO sign-in.",
+            )
+
+    session_token = create_jwt(
+        user_id=token.sub,
+        org_id=target.id,
+        role=target.role,
+        email=token.email,
+        auth_method=_token_auth_method_for_jwt(token),
+    )
+    _set_session_cookie(response, session_token)
+
+    logger.info(
+        "Switched active organization",
+        user_id=token.sub,
+        previous_org_id=token.org_id,
+        next_org_id=target.id,
+    )
+
+    return SwitchOrganizationResponse(
+        session_token=session_token,
+        active_org_id=target.id,
+    )
+
+
+@router.post("/password-reset/request", response_model=PasswordResetRequestResponse)
+async def request_password_reset(
+    request: PasswordResetRequestBody,
+) -> PasswordResetRequestResponse:
+    """
+    Request password reset.
+
+    Always returns a generic success response to avoid account enumeration.
+    """
+    from src.db.client import get_db_session
+    from src.db.rls import rls_context
+
+    email = (request.email or "").strip().lower()
+    if not email:
+        return PasswordResetRequestResponse()
+
+    reset_token: str | None = None
+    reset_link: str | None = None
+
+    try:
+        with rls_context("internal", is_internal=True):
+            async with get_db_session() as session:
+                user_result = await session.execute(
+                    text(
+                        """
+                        SELECT id, email
+                        FROM users
+                        WHERE lower(email) = :email
+                        LIMIT 1
+                        """
+                    ),
+                    {"email": email},
+                )
+                user = user_result.fetchone()
+
+                if user:
+                    reset_token = secrets.token_urlsafe(32)
+                    reset_hash = _hash_reset_token(reset_token)
+                    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+
+                    await session.execute(
+                        text(
+                            """
+                            UPDATE password_reset_token
+                            SET used_at = NOW()
+                            WHERE user_id = :user_id
+                              AND used_at IS NULL
+                            """
+                        ),
+                        {"user_id": user.id},
+                    )
+
+                    await session.execute(
+                        text(
+                            """
+                            INSERT INTO password_reset_token (
+                                id,
+                                user_id,
+                                token_hash,
+                                expires_at,
+                                created_at
+                            ) VALUES (
+                                :id,
+                                :user_id,
+                                :token_hash,
+                                :expires_at,
+                                NOW()
+                            )
+                            """
+                        ),
+                        {
+                            "id": f"prt_{secrets.token_hex(12)}",
+                            "user_id": user.id,
+                            "token_hash": reset_hash,
+                            "expires_at": expires_at,
+                        },
+                    )
+
+        if reset_token:
+            reset_link = _build_reset_link(reset_token)
+            if reset_link:
+                subject = "Reset your Drovi password"
+                text_body = (
+                    "We received a request to reset your password.\n\n"
+                    f"Reset link: {reset_link}\n\n"
+                    "If you did not request this change, you can ignore this email."
+                )
+                html_body = (
+                    "<div style=\"font-family:ui-sans-serif,system-ui;line-height:1.5;\">"
+                    "<h2 style=\"margin:0 0 12px 0;\">Reset your password</h2>"
+                    "<p style=\"margin:0 0 12px 0;\">We received a request to reset your password.</p>"
+                    f"<p style=\"margin:0 0 12px 0;\"><a href=\"{reset_link}\">Set a new password</a></p>"
+                    "<p style=\"margin:0; color:#6b7280; font-size:12px;\">"
+                    "If you did not request this change, you can ignore this email."
+                    "</p></div>"
+                )
+                await send_resend_email(
+                    to_emails=[email],
+                    subject=subject,
+                    html_body=html_body,
+                    text_body=text_body,
+                    tags={"type": "password_reset"},
+                )
+
+    except Exception as exc:
+        logger.error("Password reset request failed", email=email, error=str(exc))
+
+    response = PasswordResetRequestResponse()
+    if get_settings().environment != "production":
+        response.reset_token = reset_token
+        response.reset_link = reset_link
+    return response
+
+
+@router.post("/password-reset/confirm", response_model=PasswordResetConfirmResponse)
+async def confirm_password_reset(
+    request: PasswordResetConfirmBody,
+) -> PasswordResetConfirmResponse:
+    """Confirm password reset by token and set new password hash."""
+    from src.db.client import get_db_session
+    from src.db.rls import rls_context
+
+    token_value = (request.token or "").strip()
+    new_password = request.new_password or ""
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if len(new_password) > 256:
+        raise HTTPException(status_code=400, detail="Password is too long")
+    if not token_value:
+        raise HTTPException(status_code=400, detail="Reset token is required")
+
+    token_hash = _hash_reset_token(token_value)
+    now = datetime.now(timezone.utc)
+
+    with rls_context("internal", is_internal=True):
+        async with get_db_session() as session:
+            token_result = await session.execute(
+                text(
+                    """
+                    SELECT id, user_id, expires_at, used_at
+                    FROM password_reset_token
+                    WHERE token_hash = :token_hash
+                    LIMIT 1
+                    """
+                ),
+                {"token_hash": token_hash},
+            )
+            token_row = token_result.fetchone()
+            if not token_row:
+                raise HTTPException(status_code=400, detail="Invalid reset token")
+
+            if token_row.used_at is not None:
+                raise HTTPException(status_code=400, detail="Reset token has already been used")
+
+            expires_at = token_row.expires_at
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if expires_at < now:
+                raise HTTPException(status_code=400, detail="Reset token has expired")
+
+            password_hash = _hash_password(new_password)
+
+            await session.execute(
+                text(
+                    """
+                    UPDATE users
+                    SET password_hash = :password_hash
+                    WHERE id = :user_id
+                    """
+                ),
+                {"password_hash": password_hash, "user_id": token_row.user_id},
+            )
+
+            await session.execute(
+                text(
+                    """
+                    UPDATE password_reset_token
+                    SET used_at = NOW()
+                    WHERE id = :id
+                    """
+                ),
+                {"id": token_row.id},
+            )
+            await session.execute(
+                text(
+                    """
+                    UPDATE password_reset_token
+                    SET used_at = NOW()
+                    WHERE user_id = :user_id
+                      AND id <> :id
+                      AND used_at IS NULL
+                    """
+                ),
+                {"user_id": token_row.user_id, "id": token_row.id},
+            )
+
+    return PasswordResetConfirmResponse(ok=True)
+
+
 @router.patch("/me/locale")
 async def update_my_locale(
     request: UpdateLocaleRequest,
@@ -741,6 +1139,9 @@ async def _exchange_oauth_code(
 
         # Microsoft-based providers (Outlook, Teams)
         if provider in ("outlook", "teams"):
+            import base64
+            import json
+
             tenant = settings.microsoft_tenant_id or "common"
             token_response = await client.post(
                 f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token",
@@ -771,9 +1172,26 @@ async def _exchange_oauth_code(
                 headers={"Authorization": f"Bearer {tokens['access_token']}"},
             )
             email = None
+            microsoft_user_id = None
+            user_principal_name = None
             if userinfo_response.status_code == 200:
                 userinfo = userinfo_response.json()
-                email = userinfo.get("mail") or userinfo.get("userPrincipalName")
+                microsoft_user_id = userinfo.get("id")
+                user_principal_name = userinfo.get("userPrincipalName")
+                email = userinfo.get("mail") or user_principal_name
+
+            tenant_id = None
+            access_token = tokens.get("access_token")
+            if isinstance(access_token, str) and access_token:
+                try:
+                    payload_segment = access_token.split(".")[1]
+                    payload_segment += "=" * (-len(payload_segment) % 4)
+                    claims = json.loads(base64.urlsafe_b64decode(payload_segment.encode()).decode())
+                    tenant_claim = claims.get("tid")
+                    if isinstance(tenant_claim, str) and tenant_claim:
+                        tenant_id = tenant_claim
+                except Exception:
+                    tenant_id = None
 
             scope_map = {
                 "outlook": ["Mail.Read"],
@@ -787,6 +1205,12 @@ async def _exchange_oauth_code(
                 "email": email,
                 "scopes": scope_map.get(provider, []),
                 "oauth_provider": "microsoft",
+                "connection_metadata": {
+                    "tenant_id": tenant_id,
+                    "microsoft_user_id": microsoft_user_id,
+                    "user_principal_name": user_principal_name,
+                    "email_address": email,
+                },
             }
 
         # Notion
@@ -834,6 +1258,13 @@ async def _exchange_oauth_code(
                 "email": email,
                 "scopes": ["read_content"],
                 "oauth_provider": "notion",
+                "connection_metadata": {
+                    "workspace_id": tokens.get("workspace_id"),
+                    "workspace_name": tokens.get("workspace_name"),
+                    "workspace_icon": tokens.get("workspace_icon"),
+                    "workspace_type": tokens.get("workspace_type"),
+                    "bot_id": tokens.get("bot_id"),
+                },
             }
 
         # HubSpot
@@ -964,6 +1395,7 @@ async def _handle_connector_callback(
         email = token_result.get("email")
         scopes = token_result.get("scopes", [])
         oauth_provider = token_result.get("oauth_provider", provider)
+        connection_metadata = token_result.get("connection_metadata") or {}
 
         expires_at = None
         if expires_in is not None:
@@ -974,19 +1406,12 @@ async def _handle_connector_callback(
 
         # Store connection in database
         from src.db.client import get_db_session
-        from cryptography.fernet import Fernet
+        from src.connectors.auth.token_crypto import encrypt_connector_token
 
-        # Encrypt tokens (use a simple key derivation for now)
-        # In production, use proper key management
-        encryption_key = settings.api_key_salt or "default-key-change-me"
-        # Pad or truncate to 32 bytes for Fernet
-        key_bytes = encryption_key.encode()[:32].ljust(32, b"0")
-        from base64 import urlsafe_b64encode as b64encode
-        fernet_key = b64encode(key_bytes)
-        fernet = Fernet(fernet_key)
-
-        access_token_encrypted = fernet.encrypt(access_token.encode())
-        refresh_token_encrypted = fernet.encrypt(refresh_token.encode()) if refresh_token else None
+        access_token_encrypted = encrypt_connector_token(access_token)
+        refresh_token_encrypted = (
+            encrypt_connector_token(refresh_token) if refresh_token else None
+        )
 
         connection_id = str(uuid4())
         oauth_token_id = str(uuid4())
@@ -996,6 +1421,17 @@ async def _handle_connector_callback(
             connection_name = f"{provider.replace('_', ' ').title()} - {email}"
         else:
             connection_name = provider.replace("_", " ").title()
+
+        config_payload: dict[str, Any] = {
+            "email": email,
+            "restricted_labels": restricted_labels,
+            "restricted_channels": restricted_channels,
+            "scopes": scopes,
+        }
+        if isinstance(connection_metadata, dict):
+            for key, value in connection_metadata.items():
+                if value is not None:
+                    config_payload[key] = value
 
         async with get_db_session() as session:
             # Create connection record
@@ -1016,12 +1452,7 @@ async def _handle_connector_callback(
                     "org_id": org_id,
                     "connector_type": provider,
                     "name": connection_name,
-                    "config": json.dumps({
-                        "email": email,
-                        "restricted_labels": restricted_labels,
-                        "restricted_channels": restricted_channels,
-                        "scopes": scopes,
-                    }),
+                    "config": json.dumps(config_payload),
                     "created_by_user_id": created_by_user_id,
                     "visibility": visibility,
                 },

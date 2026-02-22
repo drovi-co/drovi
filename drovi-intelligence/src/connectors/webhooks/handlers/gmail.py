@@ -309,14 +309,8 @@ class GmailWatchManager:
         Returns:
             Watch response with historyId and expiration
         """
-        from src.connectors.auth.token_manager import get_token_manager
-
         try:
-            token_manager = await get_token_manager()
-            access_token = await token_manager.get_valid_token(
-                connection_id=connection_id,
-                provider="google",
-            )
+            access_token = await self._get_valid_access_token(connection_id)
 
             import httpx
 
@@ -366,14 +360,8 @@ class GmailWatchManager:
         Args:
             connection_id: The connection ID
         """
-        from src.connectors.auth.token_manager import get_token_manager
-
         try:
-            token_manager = await get_token_manager()
-            access_token = await token_manager.get_valid_token(
-                connection_id=connection_id,
-                provider="google",
-            )
+            access_token = await self._get_valid_access_token(connection_id)
 
             import httpx
 
@@ -401,6 +389,35 @@ class GmailWatchManager:
                 error=str(e),
             )
             raise
+
+    async def _get_valid_access_token(self, connection_id: str) -> str:
+        """Resolve organization and load a non-expired OAuth access token."""
+        from src.connectors.auth.token_store import get_token_store
+        from src.db.client import get_db_pool
+
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT organization_id
+                FROM connections
+                WHERE id = $1::uuid
+                """,
+                connection_id,
+            )
+
+        if not row:
+            raise RuntimeError(f"Connection not found for watch manager: {connection_id}")
+
+        organization_id = str(row["organization_id"])
+        token_store = await get_token_store()
+        tokens = await token_store.get_tokens(
+            connection_id=connection_id,
+            organization_id=organization_id,
+        )
+        if not tokens or tokens.is_expired:
+            raise RuntimeError(f"No valid OAuth token available for connection: {connection_id}")
+        return tokens.access_token
 
     async def renew_expiring_watches(self) -> int:
         """

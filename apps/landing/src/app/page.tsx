@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Agents } from "@/components/landing/agents";
 import { CTA } from "@/components/landing/cta";
+import { DemoModal } from "@/components/landing/demo-modal";
 import { Features } from "@/components/landing/features";
 import { Footer } from "@/components/landing/footer";
 import { Hero } from "@/components/landing/hero";
@@ -15,18 +16,16 @@ import { Testimonial } from "@/components/landing/testimonial";
 import { WaitlistDialog } from "@/components/waitlist/waitlist-dialog";
 
 export default function LandingPage() {
+  const [demoOpen, setDemoOpen] = useState(false);
   const [waitlistOpen, setWaitlistOpen] = useState(false);
 
   const handleRequestAccess = () => {
+    setDemoOpen(false);
     setWaitlistOpen(true);
   };
 
   const handleWatchDemo = () => {
-    // TODO: Open demo video modal
-    // For now, scroll to how-it-works section
-    document
-      .getElementById("how-it-works")
-      ?.scrollIntoView({ behavior: "smooth" });
+    setDemoOpen(true);
   };
 
   return (
@@ -66,6 +65,13 @@ export default function LandingPage() {
 
       {/* Waitlist Dialog */}
       <WaitlistDialog onOpenChange={setWaitlistOpen} open={waitlistOpen} />
+
+      {/* Demo Modal */}
+      <DemoModal
+        onOpenChange={setDemoOpen}
+        onRequestAccess={handleRequestAccess}
+        open={demoOpen}
+      />
     </div>
   );
 }

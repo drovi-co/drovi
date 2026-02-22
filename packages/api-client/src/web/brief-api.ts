@@ -9,7 +9,7 @@ export function createBriefApi(client: ApiClient) {
     },
 
     async generateBrief(): Promise<Brief> {
-      return client.requestJson<Brief>("/brief/generate", { method: "POST" });
+      return client.requestJson<Brief>("/brief/refresh", { method: "POST" });
     },
   };
 }

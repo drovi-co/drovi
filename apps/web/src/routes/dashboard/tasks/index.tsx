@@ -62,6 +62,7 @@ import {
   type TaskPriority,
   type TaskSourceType,
   type TaskStatus,
+  TaskVirtualList,
 } from "@/components/tasks";
 import {
   useTaskStats,
@@ -86,6 +87,8 @@ const COL = {
   status: "w-7", // 28px
   taskId: "w-[120px]", // 120px - matches sender column in inbox
 } as const;
+
+const VIRTUAL_LIST_THRESHOLD = 80;
 
 function normalizeTaskStatus(status: string | null | undefined): TaskStatus {
   switch (status) {
@@ -720,6 +723,9 @@ function TasksPage() {
                 showGroupHeaders={statusFilter === "all"}
                 tasks={tasks}
                 tasksByStatus={tasksByStatus}
+                useVirtualFlatList={
+                  statusFilter !== "all" && tasks.length >= VIRTUAL_LIST_THRESHOLD
+                }
               />
             )
           ) : (
@@ -759,6 +765,7 @@ interface TaskListViewProps {
   onStar: (id: string) => void;
   onArchive: (id: string) => void;
   showGroupHeaders: boolean;
+  useVirtualFlatList?: boolean;
 }
 
 function TaskListView({
@@ -774,6 +781,7 @@ function TaskListView({
   onStar,
   onArchive,
   showGroupHeaders,
+  useVirtualFlatList = false,
 }: TaskListViewProps) {
   const { t: tr } = useI18n();
   const statusOrder: TaskStatus[] = [
@@ -942,9 +950,10 @@ function TaskListView({
   const visibleTasks = tasks.slice(0, flatListVisibleCount);
   const hasMoreTasks = tasks.length > flatListVisibleCount;
   const remainingTasks = tasks.length - flatListVisibleCount;
+  const shouldRenderVirtualFlatList = useVirtualFlatList && tasks.length > 0;
 
   return (
-    <div>
+    <div className={cn(shouldRenderVirtualFlatList && "flex h-full flex-col")}>
       {/* List Header - matches inbox-row.tsx layout exactly */}
       <div
         className={cn(
@@ -998,49 +1007,67 @@ function TaskListView({
         </div>
       </div>
 
-      {/* Tasks */}
-      {visibleTasks.map((task) => (
-        <TaskRow
-          isActive={selectedTaskId === task.id}
-          isSelected={selectedIds.has(task.id)}
-          key={task.id}
+      {shouldRenderVirtualFlatList ? (
+        <TaskVirtualList
+          className="flex-1"
+          groupByStatus={false}
           onArchive={onArchive}
-          onClick={() => onTaskClick(task.id)}
           onPriorityChange={onPriorityChange}
-          onSelect={onSelectTask}
+          onSelectTask={onSelectTask}
           onStar={onStar}
           onStatusChange={onStatusChange}
-          task={task}
+          onTaskClick={onTaskClick}
+          selectedIds={selectedIds}
+          selectedTaskId={selectedTaskId}
+          tasks={tasks}
         />
-      ))}
+      ) : (
+        <>
+          {/* Tasks */}
+          {visibleTasks.map((task) => (
+            <TaskRow
+              isActive={selectedTaskId === task.id}
+              isSelected={selectedIds.has(task.id)}
+              key={task.id}
+              onArchive={onArchive}
+              onClick={() => onTaskClick(task.id)}
+              onPriorityChange={onPriorityChange}
+              onSelect={onSelectTask}
+              onStar={onStar}
+              onStatusChange={onStatusChange}
+              task={task}
+            />
+          ))}
 
-      {/* Show More Button */}
-      {hasMoreTasks && (
-        <button
-          className={cn(
-            "flex w-full items-center justify-center gap-2 px-4 py-3",
-            "text-[13px] text-secondary hover:text-secondary",
-            "bg-card hover:bg-muted",
-            "border-border border-b",
-            "cursor-pointer transition-colors"
+          {/* Show More Button */}
+          {hasMoreTasks && (
+            <button
+              className={cn(
+                "flex w-full items-center justify-center gap-2 px-4 py-3",
+                "text-[13px] text-secondary hover:text-secondary",
+                "bg-card hover:bg-muted",
+                "border-border border-b",
+                "cursor-pointer transition-colors"
+              )}
+              onClick={showMoreFlatList}
+              type="button"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+              <span>
+                {tr("components.tasks.pagination.showMore", {
+                  count: Math.min(remainingTasks, ITEMS_PER_SECTION * 2),
+                  remaining: remainingTasks,
+                })}
+              </span>
+            </button>
           )}
-          onClick={showMoreFlatList}
-          type="button"
-        >
-          <ChevronDown className="h-3.5 w-3.5" />
-          <span>
-            {tr("components.tasks.pagination.showMore", {
-              count: Math.min(remainingTasks, ITEMS_PER_SECTION * 2),
-              remaining: remainingTasks,
-            })}
-          </span>
-        </button>
+        </>
       )}
 
       {/* Total count footer */}
       <div className="border-border border-t px-4 py-2 text-center text-[11px] text-muted-foreground">
         {tr("pages.dashboard.tasks.table.showingCount", {
-          shown: visibleTasks.length,
+          shown: shouldRenderVirtualFlatList ? tasks.length : visibleTasks.length,
           total: tasks.length,
         })}
       </div>

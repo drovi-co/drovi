@@ -53,7 +53,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { EvidenceRail } from "@/components/evidence";
-import { useDismissUIO, useUIO, useVerifyUIO } from "@/hooks/use-uio";
+import { SourceViewerSheet } from "@/components/evidence/source-viewer-sheet";
+import { TeamDiscussion } from "@/components/unified-object/team-discussion";
+import {
+  useDecisionSupersessionChain,
+  useDismissUIO,
+  useUIO,
+  useVerifyUIO,
+} from "@/hooks/use-uio";
 import { authClient } from "@/lib/auth-client";
 import { resolveContactDisplayName } from "@/lib/uio-derived-fields";
 import { cn } from "@/lib/utils";
@@ -143,6 +150,8 @@ function DecisionDetailPage() {
   const [editingRationale, setEditingRationale] = useState(false);
   const [title, setTitle] = useState("");
   const [rationale, setRationale] = useState("");
+  const [sourceViewerOpen, setSourceViewerOpen] = useState(false);
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const rationaleRef = useRef<HTMLTextAreaElement>(null);
 
@@ -152,6 +161,11 @@ function DecisionDetailPage() {
     isLoading,
     refetch,
   } = useUIO({
+    organizationId,
+    id: decisionId,
+    enabled: !!organizationId && !!decisionId,
+  });
+  const { data: supersessionChainData } = useDecisionSupersessionChain({
     organizationId,
     id: decisionId,
     enabled: !!organizationId && !!decisionId,
@@ -206,38 +220,48 @@ function DecisionDetailPage() {
         );
 
         const primarySource = decisionData.sources?.[0] ?? null;
-        const supersessionTimeline: DecisionTimelineEvent[] = [];
-        if (decisionData.decisionDetails?.supersedesUioId) {
-          supersessionTimeline.push({
-            id: "supersession-parent",
-            eventDescription: "Supersedes previous decision",
-            eventAt: decisionData.createdAt,
-          });
-        }
-        if (decisionData.decisionDetails?.supersededByUioId) {
-          supersessionTimeline.push({
-            id: "supersession-child",
-            eventDescription: "Superseded by a newer decision",
-            eventAt: decisionData.updatedAt ?? decisionData.createdAt,
-          });
-        }
-        if (supersessionTimeline.length === 0) {
-          supersessionTimeline.push({
-            id: "supersession-active",
-            eventDescription: "Decision remains active",
-            eventAt: decisionData.updatedAt ?? decisionData.createdAt,
-          });
-        }
-        supersessionTimeline.sort(
-          (a, b) =>
-            new Date(a.eventAt).getTime() - new Date(b.eventAt).getTime()
-        );
+        const chain = supersessionChainData?.chain ?? [];
+        const chainEntry = chain.find((entry) => entry.id === decisionData.id);
+
+        const supersessionTimeline: DecisionTimelineEvent[] =
+          chain.length > 0
+            ? chain.map((entry, index) => {
+                let prefix = "Superseded decision";
+                if (index === 0) {
+                  prefix = "Original decision";
+                }
+                if (entry.isCurrent) {
+                  prefix = "Current decision";
+                }
+                if (entry.id === decisionData.id && !entry.isCurrent) {
+                  prefix = "Selected decision";
+                }
+                return {
+                  id: `supersession-${entry.id}`,
+                  eventDescription: `${prefix}: ${entry.title}`,
+                  eventAt: entry.decidedAt ?? entry.createdAt,
+                };
+              })
+            : [
+                {
+                  id: "supersession-active",
+                  eventDescription: "Decision remains active",
+                  eventAt: decisionData.updatedAt ?? decisionData.createdAt,
+                },
+              ];
+
         const supersessionState: "active" | "superseding" | "superseded" =
-          decisionData.decisionDetails?.supersededByUioId
-            ? "superseded"
-            : decisionData.decisionDetails?.supersedesUioId
-              ? "superseding"
-              : "active";
+          chainEntry
+            ? chainEntry.isCurrent
+              ? chainEntry.supersedesUioId
+                ? "superseding"
+                : "active"
+              : "superseded"
+            : decisionData.decisionDetails?.supersededByUioId
+              ? "superseded"
+              : decisionData.decisionDetails?.supersedesUioId
+                ? "superseding"
+                : "active";
 
         return {
           id: decisionData.id,
@@ -360,8 +384,12 @@ function DecisionDetailPage() {
     );
   }, [decision, verifyMutation, organizationId, refetch, queryClient]);
 
-  const handleSourceClick = useCallback((_conversationId?: string | null) => {
-    toast.message("Source viewer coming soon");
+  const handleSourceClick = useCallback((sourceId?: string | null) => {
+    if (!sourceId) {
+      return;
+    }
+    setSelectedSourceId(sourceId);
+    setSourceViewerOpen(true);
   }, []);
 
   // Keyboard shortcuts
@@ -628,8 +656,7 @@ function DecisionDetailPage() {
                         className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/50 p-3 transition-colors hover:border-secondary/50 hover:bg-muted"
                         key={source.id}
                         onClick={() =>
-                          source.conversationId &&
-                          handleSourceClick(source.conversationId)
+                          handleSourceClick(source.id)
                         }
                       >
                         <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -748,9 +775,8 @@ function DecisionDetailPage() {
                     Team Discussion
                   </span>
                 </div>
-                <div className="mt-3 rounded-lg border border-dashed bg-muted/40 px-3 py-4 text-muted-foreground text-xs">
-                  Collaborative threads are coming soon. Capture updates
-                  directly in decision notes or attach supporting evidence.
+                <div className="mt-3">
+                  <TeamDiscussion organizationId={organizationId} uioId={decision.id} />
                 </div>
               </div>
             </div>
@@ -924,6 +950,18 @@ function DecisionDetailPage() {
           </div>
         </div>
       </div>
+
+      <SourceViewerSheet
+        onOpenChange={(open) => {
+          setSourceViewerOpen(open);
+          if (!open) {
+            setSelectedSourceId(null);
+          }
+        }}
+        open={sourceViewerOpen}
+        organizationId={organizationId}
+        sourceId={selectedSourceId}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ OpenAPI Tags:
 - monitoring: Health checks, metrics, and observability
 """
 
+from collections import defaultdict
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -306,6 +307,84 @@ async def prometheus_metrics():
         )
 
 
+def _collect_prometheus_samples() -> dict[str, list[Any]]:
+    """Collect Prometheus samples keyed by sample name."""
+    try:
+        from prometheus_client import REGISTRY
+    except ImportError:
+        return {}
+
+    grouped: dict[str, list[Any]] = defaultdict(list)
+    for family in REGISTRY.collect():
+        for sample in family.samples:
+            grouped[sample.name].append(sample)
+    return grouped
+
+
+def _sum_sample_values(samples: dict[str, list[Any]], sample_name: str) -> float:
+    return float(sum(float(sample.value) for sample in samples.get(sample_name, [])))
+
+
+def _group_sample_values(
+    samples: dict[str, list[Any]],
+    *,
+    sample_name: str,
+    label: str,
+) -> dict[str, float]:
+    grouped: dict[str, float] = defaultdict(float)
+    for sample in samples.get(sample_name, []):
+        key = str(sample.labels.get(label) or "unknown")
+        grouped[key] += float(sample.value)
+    return dict(grouped)
+
+
+def _to_int(value: Any) -> int:
+    """Best-effort integer conversion for query results."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return 0
+
+
+def _parse_optional_datetime(value: Any) -> datetime | None:
+    """Normalize optional datetime values from graph query results."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return None
+        try:
+            return datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    return None
+
+
+async def _query_decay_count(
+    graph: Any,
+    *,
+    organization_id: str,
+    condition: str,
+) -> int:
+    query = f"""
+        MATCH (n)
+        WHERE n.organizationId = $orgId
+          AND n.relevanceScore IS NOT NULL
+          AND {condition}
+        RETURN count(n) as count
+    """
+    result = await graph.query(query, {"orgId": organization_id})
+    if not result:
+        return 0
+    return _to_int(result[0].get("count"))
+
+
 @router.get(
     "/metrics/summary",
     response_model=MetricsSummaryResponse,
@@ -330,40 +409,143 @@ async def metrics_summary(
     period: Annotated[str, Query(description="Time period: last_hour, last_24h, last_7d")] = "last_24h",
 ) -> MetricsSummaryResponse:
     """Get metrics summary."""
-    # Note: In a real implementation, this would query Prometheus or internal metrics
-    # For now, return placeholder structure
+    samples = _collect_prometheus_samples()
+
+    extraction_total = int(_sum_sample_values(samples, "drovi_extractions_total"))
+    extraction_success = sum(
+        float(sample.value)
+        for sample in samples.get("drovi_extractions_total", [])
+        if str(sample.labels.get("status", "")).lower() in {"success", "completed"}
+    )
+    extraction_success_rate = (
+        float(extraction_success) / float(extraction_total)
+        if extraction_total > 0
+        else 0.0
+    )
+    extraction_duration_sum = _sum_sample_values(
+        samples,
+        "drovi_extraction_duration_seconds_sum",
+    )
+    extraction_duration_count = _sum_sample_values(
+        samples,
+        "drovi_extraction_duration_seconds_count",
+    )
+    extraction_avg_duration = (
+        extraction_duration_sum / extraction_duration_count
+        if extraction_duration_count > 0
+        else 0.0
+    )
+
+    sync_total = int(_sum_sample_values(samples, "drovi_sync_jobs_total"))
+    sync_success = sum(
+        float(sample.value)
+        for sample in samples.get("drovi_sync_jobs_total", [])
+        if str(sample.labels.get("status", "")).lower() in {"success", "completed"}
+    )
+    sync_success_rate = float(sync_success) / float(sync_total) if sync_total > 0 else 0.0
+    sync_by_connector = _group_sample_values(
+        samples,
+        sample_name="drovi_sync_jobs_total",
+        label="connector_type",
+    )
+    records_synced_total = int(_sum_sample_values(samples, "drovi_records_synced_total"))
+
+    search_total = int(_sum_sample_values(samples, "drovi_search_requests_total"))
+    search_duration_sum = _sum_sample_values(samples, "drovi_search_duration_seconds_sum")
+    search_duration_count = _sum_sample_values(samples, "drovi_search_duration_seconds_count")
+    search_avg_duration = (
+        search_duration_sum / search_duration_count if search_duration_count > 0 else 0.0
+    )
+    search_results_sum = _sum_sample_values(samples, "drovi_search_results_count_sum")
+    search_results_count = _sum_sample_values(samples, "drovi_search_results_count_count")
+    search_avg_results = (
+        search_results_sum / search_results_count if search_results_count > 0 else 0.0
+    )
+    search_by_type = _group_sample_values(
+        samples,
+        sample_name="drovi_search_requests_total",
+        label="search_type",
+    )
+
+    llm_requests_total = int(_sum_sample_values(samples, "drovi_llm_requests_total"))
+    llm_tokens_input = sum(
+        float(sample.value)
+        for sample in samples.get("drovi_llm_tokens_total", [])
+        if str(sample.labels.get("type", "")).lower() == "input"
+    )
+    llm_tokens_output = sum(
+        float(sample.value)
+        for sample in samples.get("drovi_llm_tokens_total", [])
+        if str(sample.labels.get("type", "")).lower() == "output"
+    )
+    llm_by_model: dict[str, dict[str, float]] = {}
+    for sample in samples.get("drovi_llm_requests_total", []):
+        model = str(sample.labels.get("model") or "unknown")
+        bucket = llm_by_model.setdefault(
+            model,
+            {"requests": 0.0, "input_tokens": 0.0, "output_tokens": 0.0},
+        )
+        bucket["requests"] += float(sample.value)
+    for sample in samples.get("drovi_llm_tokens_total", []):
+        model = str(sample.labels.get("model") or "unknown")
+        token_type = str(sample.labels.get("type") or "unknown")
+        bucket = llm_by_model.setdefault(
+            model,
+            {"requests": 0.0, "input_tokens": 0.0, "output_tokens": 0.0},
+        )
+        if token_type == "input":
+            bucket["input_tokens"] += float(sample.value)
+        elif token_type == "output":
+            bucket["output_tokens"] += float(sample.value)
+
+    events_published = int(_sum_sample_values(samples, "drovi_events_published_total"))
+    events_by_type = _group_sample_values(
+        samples,
+        sample_name="drovi_events_published_total",
+        label="event_type",
+    )
 
     return MetricsSummaryResponse(
         period=period,
         extractions={
-            "total": 0,
-            "success_rate": 0.0,
-            "avg_duration_seconds": 0.0,
-            "uios_extracted": 0,
-            "entities_extracted": 0,
+            "total": extraction_total,
+            "success_rate": extraction_success_rate,
+            "avg_duration_seconds": extraction_avg_duration,
+            "uios_extracted": int(_sum_sample_values(samples, "drovi_uios_extracted_total")),
+            "entities_extracted": int(_sum_sample_values(samples, "drovi_entities_extracted_total")),
         },
         syncs={
-            "total": 0,
-            "success_rate": 0.0,
-            "records_synced": 0,
-            "by_connector": {},
+            "total": sync_total,
+            "success_rate": sync_success_rate,
+            "records_synced": records_synced_total,
+            "by_connector": {
+                key: int(value) for key, value in sync_by_connector.items()
+            },
         },
         searches={
-            "total": 0,
-            "avg_duration_seconds": 0.0,
-            "avg_results": 0.0,
-            "by_type": {},
+            "total": search_total,
+            "avg_duration_seconds": search_avg_duration,
+            "avg_results": search_avg_results,
+            "by_type": {key: int(value) for key, value in search_by_type.items()},
         },
         llm={
-            "total_requests": 0,
-            "total_tokens": 0,
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "by_model": {},
+            "total_requests": llm_requests_total,
+            "total_tokens": int(llm_tokens_input + llm_tokens_output),
+            "input_tokens": int(llm_tokens_input),
+            "output_tokens": int(llm_tokens_output),
+            "by_model": {
+                model: {
+                    "requests": int(values["requests"]),
+                    "input_tokens": int(values["input_tokens"]),
+                    "output_tokens": int(values["output_tokens"]),
+                    "total_tokens": int(values["input_tokens"] + values["output_tokens"]),
+                }
+                for model, values in llm_by_model.items()
+            },
         },
         events={
-            "published": 0,
-            "by_type": {},
+            "published": events_published,
+            "by_type": {key: int(value) for key, value in events_by_type.items()},
         },
     )
 
@@ -450,19 +632,69 @@ async def get_decay_stats(
 ) -> DecayStatsResponse:
     """Get memory decay statistics."""
     _validate_org_id(ctx, organization_id)
+    from src.graph.client import get_graph_client
 
-    # Note: This would query the graph for relevance score distributions
-    # For now, return placeholder structure
+    try:
+        graph = await get_graph_client()
 
-    return DecayStatsResponse(
-        organization_id=organization_id,
-        total_nodes=0,
-        high_relevance=0,
-        medium_relevance=0,
-        low_relevance=0,
-        archived=0,
-        last_decay_run=None,
-    )
+        total_nodes = await _query_decay_count(
+            graph,
+            organization_id=organization_id,
+            condition="1 = 1",
+        )
+        high_relevance = await _query_decay_count(
+            graph,
+            organization_id=organization_id,
+            condition="n.validTo IS NULL AND n.relevanceScore > 0.7",
+        )
+        medium_relevance = await _query_decay_count(
+            graph,
+            organization_id=organization_id,
+            condition="n.validTo IS NULL AND n.relevanceScore >= 0.3 AND n.relevanceScore <= 0.7",
+        )
+        low_relevance = await _query_decay_count(
+            graph,
+            organization_id=organization_id,
+            condition="n.validTo IS NULL AND n.relevanceScore < 0.3",
+        )
+        archived = await _query_decay_count(
+            graph,
+            organization_id=organization_id,
+            condition="n.validTo IS NOT NULL",
+        )
+
+        last_decay_query = """
+            MATCH (n)
+            WHERE n.organizationId = $orgId
+              AND n.decayComputedAt IS NOT NULL
+            RETURN n.decayComputedAt as decayComputedAt
+            ORDER BY n.decayComputedAt DESC
+            LIMIT 1
+        """
+        last_decay_result = await graph.query(last_decay_query, {"orgId": organization_id})
+        last_decay_run = None
+        if last_decay_result:
+            last_decay_run = _parse_optional_datetime(
+                last_decay_result[0].get("decayComputedAt")
+            )
+
+        return DecayStatsResponse(
+            organization_id=organization_id,
+            total_nodes=total_nodes,
+            high_relevance=high_relevance,
+            medium_relevance=medium_relevance,
+            low_relevance=low_relevance,
+            archived=archived,
+            last_decay_run=last_decay_run,
+        )
+
+    except Exception as e:
+        logger.error(
+            "Failed to get decay stats",
+            organization_id=organization_id,
+            error=str(e),
+        )
+        raise HTTPException(status_code=500, detail=f"Failed to get decay stats: {str(e)}")
 
 
 @router.post(

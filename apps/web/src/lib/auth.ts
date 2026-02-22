@@ -19,12 +19,77 @@ import { clearSessionToken, setSessionToken } from "./session-token";
 let interactiveAuthSeq = 0;
 let checkAuthSeq = 0;
 
+interface AuthOrganization {
+  id: string;
+  name: string;
+  role: string;
+  status: string;
+  region: string | null;
+  created_at: string | null;
+}
+
+function fallbackOrganizations(user: User | null): {
+  organizations: AuthOrganization[];
+  activeOrgId: string | null;
+} {
+  if (!user) {
+    return {
+      organizations: [],
+      activeOrgId: null,
+    };
+  }
+  return {
+    organizations: [
+      {
+        id: user.org_id,
+        name: user.org_name,
+        role: user.role,
+        status: "active",
+        region: null,
+        created_at: null,
+      },
+    ],
+    activeOrgId: user.org_id,
+  };
+}
+
+async function fetchAuthOrganizations(user: User | null): Promise<{
+  organizations: AuthOrganization[];
+  activeOrgId: string | null;
+}> {
+  const fallback = fallbackOrganizations(user);
+  if (!user) {
+    return fallback;
+  }
+  try {
+    const result = await authAPI.listOrganizations();
+    if (!(result.organizations?.length > 0)) {
+      return fallback;
+    }
+    return {
+      organizations: result.organizations.map((org) => ({
+        id: org.id,
+        name: org.name,
+        role: org.role,
+        status: org.status,
+        region: org.region ?? null,
+        created_at: org.created_at ?? null,
+      })),
+      activeOrgId: result.active_org_id || result.organizations[0]?.id || user.org_id,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
 // =============================================================================
 // AUTH STORE
 // =============================================================================
 
 interface AuthState {
   user: User | null;
+  organizations: AuthOrganization[];
+  activeOrgId: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   error: string | null;
@@ -44,12 +109,15 @@ interface AuthState {
     inviteToken?: string;
     options?: { persist?: boolean };
   }) => Promise<void>;
+  switchOrganization: (organizationId: string) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
+  organizations: [],
+  activeOrgId: null,
   isLoading: true,
   isAuthenticated: false,
   error: null,
@@ -58,10 +126,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const seq = ++checkAuthSeq;
     const interactiveSeqAtStart = interactiveAuthSeq;
     const previousUser = get().user;
+    const previousOrganizations = get().organizations;
+    const previousActiveOrgId = get().activeOrgId;
     const previousAuthenticated = get().isAuthenticated;
     set({ isLoading: true, error: null });
     try {
       const user = await authAPI.getMe();
+      const orgState = await fetchAuthOrganizations(user);
       // Only the latest checkAuth applies.
       if (seq !== checkAuthSeq) {
         return;
@@ -73,6 +144,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       set({
         user,
+        organizations: orgState.organizations,
+        activeOrgId: orgState.activeOrgId,
         isAuthenticated: !!user,
         isLoading: false,
       });
@@ -90,6 +163,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // Do not destroy auth state on transient errors (API unreachable, 5xx).
         // Only a confirmed 401 in `authAPI.getMe()` should clear tokens.
         user: previousUser,
+        organizations: previousOrganizations,
+        activeOrgId: previousActiveOrgId,
         isAuthenticated: previousAuthenticated,
         isLoading: false,
         error: e instanceof Error ? e.message : "Failed to check auth",
@@ -113,11 +188,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!user) {
         throw new Error("Unable to verify session after login");
       }
+      const orgState = await fetchAuthOrganizations(user);
       if (opSeq !== interactiveAuthSeq) {
         return;
       }
       set({
         user,
+        organizations: orgState.organizations,
+        activeOrgId: orgState.activeOrgId,
         isAuthenticated: !!user,
         isLoading: false,
       });
@@ -148,11 +226,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!user) {
         throw new Error("Unable to verify session after signup");
       }
+      const orgState = await fetchAuthOrganizations(user);
       if (opSeq !== interactiveAuthSeq) {
         return;
       }
       set({
         user,
+        organizations: orgState.organizations,
+        activeOrgId: orgState.activeOrgId,
         isAuthenticated: !!user,
         isLoading: false,
       });
@@ -170,6 +251,58 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  switchOrganization: async (organizationId: string) => {
+    const current = get();
+    if (current.user?.org_id === organizationId) {
+      return;
+    }
+
+    const opSeq = ++interactiveAuthSeq;
+    const previousUser = current.user;
+    const previousOrganizations = current.organizations;
+    const previousActiveOrgId = current.activeOrgId;
+    const previousAuthenticated = current.isAuthenticated;
+    set({ isLoading: true, error: null });
+
+    try {
+      const switchResult = await authAPI.switchOrganization(organizationId);
+      setSessionToken(switchResult.session_token, { persist: true });
+
+      const user = await authAPI.getMe();
+      if (!user) {
+        throw new Error("Unable to verify session after switching organization");
+      }
+      const orgState = await fetchAuthOrganizations(user);
+
+      if (opSeq !== interactiveAuthSeq) {
+        return;
+      }
+
+      set({
+        user,
+        organizations: orgState.organizations,
+        activeOrgId: orgState.activeOrgId ?? switchResult.active_org_id,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    } catch (e) {
+      if (opSeq !== interactiveAuthSeq) {
+        return;
+      }
+      set({
+        user: previousUser,
+        organizations: previousOrganizations,
+        activeOrgId: previousActiveOrgId,
+        isAuthenticated: previousAuthenticated,
+        isLoading: false,
+        error: e instanceof Error ? e.message : "Failed to switch organization",
+      });
+      throw e instanceof Error
+        ? e
+        : new Error("Failed to switch organization");
+    }
+  },
+
   logout: async () => {
     const opSeq = ++interactiveAuthSeq;
     set({ isLoading: true, error: null });
@@ -181,6 +314,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       set({
         user: null,
+        organizations: [],
+        activeOrgId: null,
         isAuthenticated: false,
         isLoading: false,
       });
@@ -209,11 +344,14 @@ export function useAuth() {
   const store = useAuthStore();
   return {
     user: store.user,
+    organizations: store.organizations,
+    activeOrgId: store.activeOrgId,
     isLoading: store.isLoading,
     isAuthenticated: store.isAuthenticated,
     error: store.error,
     loginWithEmail: store.loginWithEmail,
     signupWithEmail: store.signupWithEmail,
+    switchOrganization: store.switchOrganization,
     logout: store.logout,
     checkAuth: store.checkAuth,
     clearError: store.clearError,

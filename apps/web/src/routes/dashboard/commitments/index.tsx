@@ -36,6 +36,7 @@ import {
   useCommitmentStats,
   useCommitmentUIOs,
   useDismissUIO,
+  useGenerateCommitmentFollowUpUIO,
   useMarkCompleteUIO,
   useSnoozeUIO,
   useUIO,
@@ -231,61 +232,50 @@ function CommitmentsPage() {
     },
   };
 
-  // Follow-up generation - simplified without AI call for now
+  const followUpMutation = useGenerateCommitmentFollowUpUIO();
+
+  // Follow-up generation through backend generation service with traceability.
   const handleFollowUpGenerate = useCallback(
-    (commitmentId: string) => {
-      const commitment = commitmentsData?.items?.find(
-        (c) => c.id === commitmentId
-      );
-      if (!commitment) {
-        toast.error(t("pages.dashboard.commitments.toasts.notFound"));
+    async (commitmentId: string) => {
+      if (!organizationId || pendingFollowUpCommitmentId === commitmentId) {
         return;
       }
 
-      // Generate a simple follow-up template
-      const debtor = commitment.owner;
-      const fallbackTitle = t(
-        "pages.dashboard.commitments.followUp.fallbackTitle"
-      );
-      const subject = t("pages.dashboard.commitments.followUp.subject", {
-        title: commitment.canonicalTitle || fallbackTitle,
-      });
-      const body = t("pages.dashboard.commitments.followUp.body", {
-        name: debtor?.displayName ? ` ${debtor.displayName}` : "",
-        title:
-          commitment.canonicalTitle ||
-          t("pages.dashboard.commitments.followUp.ourCommitment"),
-      });
+      setPendingFollowUpCommitmentId(commitmentId);
+      try {
+        const generated = await followUpMutation.mutateAsync({
+          organizationId,
+          id: commitmentId,
+          tone: "neutral",
+        });
 
-      const draft = t("pages.dashboard.commitments.followUp.draft", {
-        subject,
-        body,
-      });
-      if (navigator.clipboard?.writeText) {
-        navigator.clipboard
-          .writeText(draft)
-          .then(() =>
-            toast.success(
-              t("pages.dashboard.commitments.toasts.followUpCopied")
-            )
-          )
-          .catch(() =>
-            toast.error(
-              t("pages.dashboard.commitments.toasts.followUpCopyFailed")
-            )
-          );
-      } else {
-        toast.success(
-          t("pages.dashboard.commitments.toasts.followUpGenerated"),
-          {
-            description: t(
-              "pages.dashboard.commitments.toasts.followUpGeneratedDescription"
-            ),
-          }
-        );
+        const traceDescription = generated.trace
+          ? `Generated via ${generated.trace.provider}/${generated.trace.model} (${generated.trace.promptTokens + generated.trace.completionTokens} tokens)`
+          : generated.fallbackReason
+            ? `Fallback used: ${generated.fallbackReason}`
+            : undefined;
+
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(generated.draft);
+          toast.success(t("pages.dashboard.commitments.toasts.followUpCopied"), {
+            description: traceDescription,
+          });
+        } else {
+          toast.success(t("pages.dashboard.commitments.toasts.followUpGenerated"), {
+            description:
+              traceDescription ??
+              t(
+                "pages.dashboard.commitments.toasts.followUpGeneratedDescription"
+              ),
+          });
+        }
+      } catch {
+        toast.error(t("pages.dashboard.commitments.toasts.followUpCopyFailed"));
+      } finally {
+        setPendingFollowUpCommitmentId(null);
       }
     },
-    [commitmentsData, t]
+    [followUpMutation, organizationId, pendingFollowUpCommitmentId, t]
   );
 
   // Keyboard shortcuts

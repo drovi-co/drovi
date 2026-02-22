@@ -19,6 +19,7 @@ JOIN_SQL_BY_ALIAS: dict[str, str] = {
     "td": "LEFT JOIN uio_task_details td ON u.id = td.uio_id",
     "ac": "LEFT JOIN contact ac ON td.assignee_contact_id = ac.id",
     "rd": "LEFT JOIN uio_risk_details rd ON u.id = rd.uio_id",
+    "cld": "LEFT JOIN uio_claim_details cld ON u.id = cld.uio_id",
     "uos": "LEFT JOIN unified_object_source uos ON u.id = uos.unified_object_id",
     "conv": (
         "LEFT JOIN conversation conv ON conv.external_id = uos.conversation_id "
@@ -27,7 +28,7 @@ JOIN_SQL_BY_ALIAS: dict[str, str] = {
     "m": "LEFT JOIN message m ON m.external_id = uos.message_id AND m.conversation_id = conv.id",
 }
 
-JOIN_ORDER = ["oc", "cd", "dc", "cc", "dd", "dmc", "td", "ac", "rd", "uos", "conv", "m"]
+JOIN_ORDER = ["oc", "cd", "dc", "cc", "dd", "dmc", "td", "ac", "rd", "cld", "uos", "conv", "m"]
 
 
 def _add(joins: set[str], *aliases: str) -> None:
@@ -45,7 +46,7 @@ def plan_console_joins(
     joins: set[str] = set()
 
     if include_projection:
-        _add(joins, "oc", "cd", "dc", "cc", "dd", "dmc", "td", "ac", "rd", "uos")
+        _add(joins, "oc", "cd", "dc", "cc", "dd", "dmc", "td", "ac", "rd", "cld", "uos")
         if include_source_sender:
             _add(joins, "conv", "m")
 

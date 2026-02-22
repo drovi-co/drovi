@@ -12,14 +12,25 @@ Enables programmatic access to:
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 
+from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
+from src.auth.scopes import Scope
 from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/workflows", tags=["Agent Workflows"])
+
+
+def _validate_org_id(ctx: APIKeyContext, organization_id: str) -> None:
+    """Validate organization scope against API key context."""
+    if ctx.organization_id != "internal" and organization_id != ctx.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization ID mismatch with authenticated key",
+        )
 
 
 # =============================================================================
@@ -115,7 +126,10 @@ class MultiAgentResearchResponse(BaseModel):
 
 
 @router.post("/customer-research", response_model=CustomerResearchResponse)
-async def run_customer_research(request: CustomerResearchRequest) -> CustomerResearchResponse:
+async def run_customer_research(
+    request: CustomerResearchRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> CustomerResearchResponse:
     """
     Run customer research workflow.
 
@@ -135,6 +149,8 @@ async def run_customer_research(request: CustomerResearchRequest) -> CustomerRes
     ```
     """
     from src.agents.langgraph_workflows import get_workflows
+
+    _validate_org_id(ctx, request.organization_id)
 
     logger.info(
         "Starting customer research workflow",
@@ -158,7 +174,10 @@ async def run_customer_research(request: CustomerResearchRequest) -> CustomerRes
 
 
 @router.post("/risk-analysis", response_model=RiskAnalysisResponse)
-async def run_risk_analysis(request: RiskAnalysisRequest) -> RiskAnalysisResponse:
+async def run_risk_analysis(
+    request: RiskAnalysisRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> RiskAnalysisResponse:
     """
     Run risk analysis workflow.
 
@@ -177,6 +196,8 @@ async def run_risk_analysis(request: RiskAnalysisRequest) -> RiskAnalysisRespons
     ```
     """
     from src.agents.langgraph_workflows import get_workflows
+
+    _validate_org_id(ctx, request.organization_id)
 
     logger.info(
         "Starting risk analysis workflow",
@@ -198,7 +219,10 @@ async def run_risk_analysis(request: RiskAnalysisRequest) -> RiskAnalysisRespons
 
 
 @router.post("/intelligence-brief", response_model=IntelligenceBriefResponse)
-async def run_intelligence_brief(request: IntelligenceBriefRequest) -> IntelligenceBriefResponse:
+async def run_intelligence_brief(
+    request: IntelligenceBriefRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> IntelligenceBriefResponse:
     """
     Generate an intelligence briefing.
 
@@ -218,6 +242,8 @@ async def run_intelligence_brief(request: IntelligenceBriefRequest) -> Intellige
     ```
     """
     from src.agents.langgraph_workflows import get_workflows
+
+    _validate_org_id(ctx, request.organization_id)
 
     logger.info(
         "Starting intelligence brief workflow",
@@ -239,7 +265,10 @@ async def run_intelligence_brief(request: IntelligenceBriefRequest) -> Intellige
 
 
 @router.post("/multi-agent-research", response_model=MultiAgentResearchResponse)
-async def run_multi_agent_research(request: MultiAgentResearchRequest) -> MultiAgentResearchResponse:
+async def run_multi_agent_research(
+    request: MultiAgentResearchRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> MultiAgentResearchResponse:
     """
     Run a multi-agent research task using AG2.
 
@@ -260,6 +289,8 @@ async def run_multi_agent_research(request: MultiAgentResearchRequest) -> MultiA
     Note: Requires AG2 (autogen) to be installed.
     """
     from src.agents.ag2_integration import get_ag2_integration
+
+    _validate_org_id(ctx, request.organization_id)
 
     logger.info(
         "Starting multi-agent research",
@@ -333,7 +364,10 @@ class KnowledgeQueryResponse(BaseModel):
 
 
 @router.post("/llamaindex/ingest", response_model=DocumentIngestionResponse)
-async def ingest_documents(request: DocumentIngestionRequest) -> DocumentIngestionResponse:
+async def ingest_documents(
+    request: DocumentIngestionRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
+) -> DocumentIngestionResponse:
     """
     Ingest documents into the LlamaIndex knowledge graph.
 
@@ -352,6 +386,8 @@ async def ingest_documents(request: DocumentIngestionRequest) -> DocumentIngesti
     ```
     """
     from src.llamaindex import get_llamaindex
+
+    _validate_org_id(ctx, request.organization_id)
 
     logger.info(
         "Ingesting documents to knowledge graph",
@@ -380,7 +416,10 @@ async def ingest_documents(request: DocumentIngestionRequest) -> DocumentIngesti
 
 
 @router.post("/llamaindex/query", response_model=KnowledgeQueryResponse)
-async def query_knowledge_graph(request: KnowledgeQueryRequest) -> KnowledgeQueryResponse:
+async def query_knowledge_graph(
+    request: KnowledgeQueryRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> KnowledgeQueryResponse:
     """
     Query the LlamaIndex knowledge graph.
 
@@ -396,6 +435,8 @@ async def query_knowledge_graph(request: KnowledgeQueryRequest) -> KnowledgeQuer
     ```
     """
     from src.llamaindex import get_llamaindex
+
+    _validate_org_id(ctx, request.organization_id)
 
     logger.info(
         "Querying knowledge graph",
@@ -429,6 +470,7 @@ async def get_triplets(
     organization_id: str,
     subject: str | None = None,
     limit: int = 100,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ) -> dict[str, Any]:
     """
     Get triplets from the knowledge graph.
@@ -442,6 +484,8 @@ async def get_triplets(
     ```
     """
     from src.llamaindex import get_llamaindex
+
+    _validate_org_id(ctx, organization_id)
 
     try:
         llamaindex = await get_llamaindex(organization_id)
@@ -463,6 +507,7 @@ async def get_entity_context(
     organization_id: str,
     entity_name: str,
     depth: int = 2,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ) -> dict[str, Any]:
     """
     Get context around an entity from the knowledge graph.
@@ -473,6 +518,8 @@ async def get_entity_context(
     ```
     """
     from src.llamaindex import get_llamaindex
+
+    _validate_org_id(ctx, organization_id)
 
     try:
         llamaindex = await get_llamaindex(organization_id)
@@ -494,7 +541,9 @@ async def get_entity_context(
 
 
 @router.get("/health")
-async def check_workflows_health() -> dict[str, Any]:
+async def check_workflows_health(
+    _ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> dict[str, Any]:
     """
     Check health of workflow systems.
 

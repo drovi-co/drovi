@@ -85,6 +85,8 @@ class Settings(BaseSettings):
 
     # API Settings
     api_key_salt: str = Field(default="")
+    connector_token_encryption_key: str | None = Field(default=None)
+    connector_token_encryption_previous_keys: str | None = Field(default=None)
     api_base_url: str = Field(default="http://localhost:8000")
     web_app_url: str | None = Field(
         default=None

@@ -87,6 +87,31 @@ def gmail_push_notification():
     }
 
 
+@pytest.fixture
+def notion_webhook_payload():
+    """Notion webhook payload."""
+    return {
+        "type": "page.updated",
+        "workspace_id": "workspace_123",
+        "data": {
+            "id": "page_123",
+            "object": "page",
+        },
+    }
+
+
+@pytest.fixture
+def microsoft_notification():
+    """Microsoft Graph change notification payload item."""
+    return {
+        "subscriptionId": "sub_123",
+        "changeType": "updated",
+        "resource": "/users/user_123/messages/message_123",
+        "tenantId": "tenant_123",
+        "resourceData": {"id": "message_123"},
+    }
+
+
 def create_slack_signature(body: bytes, secret: str, timestamp: str) -> str:
     """Create a valid Slack signature for testing."""
     sig_basestring = f"v0:{timestamp}:{body.decode('utf-8')}"
@@ -327,6 +352,67 @@ class TestGmailWebhookEndpoint:
 
 
 # =============================================================================
+# Notion Webhook Endpoint Tests
+# =============================================================================
+
+
+class TestNotionWebhookEndpoint:
+    """Tests for Notion webhook endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_notion_webhook_queues_event(self, notion_webhook_payload):
+        """Test Notion webhook delegates to queue handler."""
+        from src.connectors.webhooks.router import notion_webhook
+
+        mock_request = MagicMock()
+        mock_request.json = AsyncMock(return_value=notion_webhook_payload)
+
+        with patch("src.connectors.webhooks.router._queue_notion_event", AsyncMock(return_value={"queued": 1, "resolved_connections": 1})):
+            response = await notion_webhook(mock_request)
+
+        assert response["ok"] is True
+        assert response["queued"] == 1
+        assert response["resolved_connections"] == 1
+
+
+# =============================================================================
+# Microsoft Webhook Endpoint Tests
+# =============================================================================
+
+
+class TestMicrosoftWebhookEndpoint:
+    """Tests for Microsoft Graph webhook endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_validation_token_echo(self):
+        """Validation token requests should echo the token string."""
+        from src.connectors.webhooks.router import microsoft_webhook
+
+        response = await microsoft_webhook(request=MagicMock(), validation_token="abc123")
+        assert response == "abc123"
+
+    @pytest.mark.asyncio
+    async def test_microsoft_notifications_are_queued(self, microsoft_notification):
+        """Notification payloads should be forwarded to queue processing."""
+        from src.connectors.webhooks.router import microsoft_webhook
+
+        mock_request = MagicMock()
+        mock_request.json = AsyncMock(return_value={"value": [microsoft_notification]})
+
+        with patch(
+            "src.connectors.webhooks.router._queue_microsoft_notification",
+            AsyncMock(return_value={"queued": 1, "resolved_connections": 1, "duplicates": 0, "errors": 0}),
+        ) as queue_mock:
+            response = await microsoft_webhook(request=mock_request)
+
+        assert response["ok"] is True
+        assert response["notifications"] == 1
+        assert response["queued"] == 1
+        assert response["resolved_connections"] == 1
+        queue_mock.assert_awaited_once_with(microsoft_notification)
+
+
+# =============================================================================
 # Event Types Tests
 # =============================================================================
 
@@ -433,6 +519,40 @@ class TestQueueFunctions:
             await _queue_slack_event(valid_slack_message_event)
 
             mock_handler.handle_event.assert_called_once_with(valid_slack_message_event)
+
+    @pytest.mark.asyncio
+    async def test_queue_notion_event(self, notion_webhook_payload):
+        """Test queueing Notion event for processing."""
+        from src.connectors.webhooks.router import _queue_notion_event
+
+        with patch(
+            "src.connectors.webhooks.handlers.notion.NotionWebhookHandler"
+        ) as mock_handler_class:
+            mock_handler = MagicMock()
+            mock_handler.handle_event = AsyncMock(return_value={"queued": 1})
+            mock_handler_class.return_value = mock_handler
+
+            result = await _queue_notion_event(notion_webhook_payload)
+
+            assert result["queued"] == 1
+            mock_handler.handle_event.assert_called_once_with(notion_webhook_payload)
+
+    @pytest.mark.asyncio
+    async def test_queue_microsoft_notification(self, microsoft_notification):
+        """Test queueing Microsoft notification for processing."""
+        from src.connectors.webhooks.router import _queue_microsoft_notification
+
+        with patch(
+            "src.connectors.webhooks.handlers.microsoft.MicrosoftWebhookHandler"
+        ) as mock_handler_class:
+            mock_handler = MagicMock()
+            mock_handler.handle_notification = AsyncMock(return_value={"queued": 1})
+            mock_handler_class.return_value = mock_handler
+
+            result = await _queue_microsoft_notification(microsoft_notification)
+
+            assert result["queued"] == 1
+            mock_handler.handle_notification.assert_called_once_with(microsoft_notification)
 
 
 # =============================================================================

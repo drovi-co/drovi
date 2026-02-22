@@ -18,14 +18,25 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
+from src.auth.middleware import APIKeyContext, require_scope_with_rate_limit
+from src.auth.scopes import Scope
 from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/stream", tags=["Real-Time Stream"])
+
+
+def _validate_org_id(ctx: APIKeyContext, organization_id: str) -> None:
+    """Validate stream organization scope against API key context."""
+    if ctx.organization_id != "internal" and organization_id != ctx.organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization ID mismatch with authenticated key",
+        )
 
 
 class GraphChangeStream:
@@ -249,6 +260,7 @@ async def stream_graph_changes(
         None,
         description="Comma-separated list of change types (e.g., 'created,updated,deleted')",
     ),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ) -> StreamingResponse:
     """
     Stream real-time graph changes via Server-Sent Events (SSE).
@@ -302,8 +314,18 @@ async def stream_graph_changes(
     - deleted: Node removed from graph
     - upserted: Node created or updated (MERGE operation)
     """
-    parsed_node_types = node_types.split(",") if node_types else None
-    parsed_change_types = change_types.split(",") if change_types else None
+    _validate_org_id(ctx, organization_id)
+
+    parsed_node_types = (
+        [node_type.strip() for node_type in node_types.split(",") if node_type.strip()]
+        if node_types
+        else None
+    )
+    parsed_change_types = (
+        [change_type.strip() for change_type in change_types.split(",") if change_type.strip()]
+        if change_types
+        else None
+    )
 
     return StreamingResponse(
         _graph_change_generator(
@@ -328,6 +350,7 @@ async def stream_intelligence(
         None,
         description="Comma-separated list of intelligence types (e.g., 'commitment,decision,risk')",
     ),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
 ) -> StreamingResponse:
     """
     Stream real-time extracted intelligence via Server-Sent Events (SSE).
@@ -361,7 +384,12 @@ async def stream_intelligence(
     - claim: Factual claims
     - question: Open questions
     """
-    parsed_types = intelligence_types.split(",") if intelligence_types else None
+    _validate_org_id(ctx, organization_id)
+    parsed_types = (
+        [itype.strip().lower() for itype in intelligence_types.split(",") if itype.strip()]
+        if intelligence_types
+        else None
+    )
 
     async def intelligence_generator() -> AsyncIterator[str]:
         """Generate SSE events for intelligence extraction."""
@@ -445,7 +473,9 @@ async def stream_intelligence(
 
 
 @router.get("/health")
-async def stream_health() -> dict[str, Any]:
+async def stream_health(
+    _ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> dict[str, Any]:
     """
     Check health of the streaming infrastructure.
 

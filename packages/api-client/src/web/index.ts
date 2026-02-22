@@ -14,6 +14,7 @@ export { createGraphApi } from "./graph-api";
 export { createIntelligenceApi } from "./intelligence-api";
 export * from "./models";
 export { createOrgApi } from "./org-api";
+export { createOrgSecurityApi } from "./org-security-api";
 export { createPatternsApi } from "./patterns-api";
 export { createSearchApi } from "./search-api";
 export { createSimulationsApi } from "./simulations-api";

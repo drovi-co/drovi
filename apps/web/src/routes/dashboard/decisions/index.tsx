@@ -36,7 +36,13 @@ import {
 } from "@/components/decisions";
 import { EvidenceDetailSheet } from "@/components/evidence";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
-import { useDecisionStats, useDecisionUIOs, useUIO } from "@/hooks/use-uio";
+import {
+  useDecisionSemanticSearch,
+  useDecisionSupersessionChain,
+  useDecisionStats,
+  useDecisionUIOs,
+  useUIO,
+} from "@/hooks/use-uio";
 import { useI18n } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -79,7 +85,6 @@ function DecisionsPage() {
   // State
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
   const [selectedDecision, setSelectedDecision] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
@@ -129,24 +134,26 @@ function DecisionsPage() {
     enabled: !!organizationId,
   });
 
-  // Semantic search - simplified to client-side filtering for now
-  const searchResults =
-    isSearching && searchQuery.length > 2
-      ? {
-          answer: null,
-          relevantDecisions:
-            decisionsData?.items?.filter(
-              (d) =>
-                d.canonicalTitle
-                  ?.toLowerCase()
-                  .includes(searchQuery.toLowerCase()) ||
-                d.canonicalDescription
-                  ?.toLowerCase()
-                  .includes(searchQuery.toLowerCase())
-            ) ?? [],
-        }
-      : null;
-  const isLoadingSearch = false;
+  const normalizedSearchQuery = searchQuery.trim();
+  const isSearching = normalizedSearchQuery.length > 2;
+
+  // Backend-assisted semantic search via /search (decision-filtered).
+  const {
+    data: semanticSearchDecisions,
+    isLoading: isLoadingSearch,
+  } = useDecisionSemanticSearch({
+    organizationId,
+    query: normalizedSearchQuery,
+    limit: 50,
+    enabled: !!organizationId && isSearching,
+  });
+
+  const searchResults = isSearching
+    ? {
+        answer: null,
+        relevantDecisions: semanticSearchDecisions ?? [],
+      }
+    : null;
 
   // Fetch detailed decision for sheet using UIO hook
   const { data: detailData } = useUIO({
@@ -154,22 +161,19 @@ function DecisionsPage() {
     id: selectedDecision ?? "",
     enabled: !!organizationId && !!selectedDecision && detailSheetOpen,
   });
+  const { data: detailSupersessionData } = useDecisionSupersessionChain({
+    organizationId,
+    id: selectedDecision ?? "",
+    enabled: !!organizationId && !!selectedDecision && detailSheetOpen,
+  });
 
-  // Supersession chain - simplified for now (not available in UIO)
-  // Type the chain properly to avoid 'never' type errors
-  const supersessionData = supersessionDecisionId
-    ? {
-        chain: [] as Array<{
-          id: string;
-          title: string;
-          statement: string;
-          decidedAt: string;
-          isCurrent: boolean;
-          supersededAt?: string | null;
-        }>,
-      }
-    : null;
-  const isLoadingSupersession = false;
+  const { data: supersessionData, isLoading: isLoadingSupersession } =
+    useDecisionSupersessionChain({
+      organizationId,
+      id: supersessionDecisionId ?? "",
+      enabled:
+        !!organizationId && !!supersessionDecisionId && showSupersessionDialog,
+    });
 
   // Evidence detail query using UIO hook
   const { data: evidenceDecisionData } = useUIO({
@@ -222,7 +226,6 @@ function DecisionsPage() {
         refetch();
       }
       if (e.key === "Escape") {
-        setIsSearching(false);
         setSearchQuery("");
       }
     };
@@ -234,11 +237,6 @@ function DecisionsPage() {
   // Handlers
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
-    if (query.length > 2) {
-      setIsSearching(true);
-    } else {
-      setIsSearching(false);
-    }
   }, []);
 
   const handleThreadClick = useCallback(() => {
@@ -485,6 +483,13 @@ function DecisionsPage() {
   const detailDecision: DecisionDetailData | null = detailData
     ? (() => {
         const details = detailData.decisionDetails;
+        const chain = detailSupersessionData?.chain ?? [];
+        const currentIndex = chain.findIndex((item) => item.id === detailData.id);
+        const previousDecision = currentIndex > 0 ? chain[currentIndex - 1] : null;
+        const nextDecision =
+          currentIndex >= 0 && currentIndex < chain.length - 1
+            ? chain[currentIndex + 1]
+            : null;
         const decisionMaker =
           detailData.decisionMaker ??
           detailData.owner ??
@@ -505,7 +510,7 @@ function DecisionsPage() {
             : new Date(detailData.createdAt),
           confidence: detailData.overallConfidence ?? 0.8,
           isUserVerified: detailData.isUserVerified ?? undefined,
-          isSuperseded: !!details?.supersededByUioId,
+          isSuperseded: Boolean(nextDecision || details?.supersededByUioId),
           evidence: evidenceQuotes.length > 0 ? evidenceQuotes : undefined,
           owners: decisionMaker
             ? [
@@ -517,8 +522,24 @@ function DecisionsPage() {
               ]
             : [],
           sourceThread: undefined,
-          supersededBy: null,
-          supersedes: null,
+          supersededBy: nextDecision
+            ? {
+                id: nextDecision.id,
+                title: nextDecision.title,
+                decidedAt: new Date(
+                  nextDecision.decidedAt ?? nextDecision.createdAt
+                ),
+              }
+            : null,
+          supersedes: previousDecision
+            ? {
+                id: previousDecision.id,
+                title: previousDecision.title,
+                decidedAt: new Date(
+                  previousDecision.decidedAt ?? previousDecision.createdAt
+                ),
+              }
+            : null,
           alternatives: undefined,
           topics: undefined,
           metadata: null,
@@ -616,7 +637,6 @@ function DecisionsPage() {
                     className="absolute top-1/2 right-0.5 h-7 w-7 -translate-y-1/2"
                     onClick={() => {
                       setSearchQuery("");
-                      setIsSearching(false);
                     }}
                     size="icon"
                     variant="ghost"
@@ -845,14 +865,14 @@ function DecisionsPage() {
                             !item.isCurrent && "line-through"
                           )}
                         >
-                          {item.statement}
+                          {item.statement ?? "No decision statement available."}
                         </p>
                         <p className="mt-2 text-muted-foreground text-xs">
                           {new Intl.DateTimeFormat(locale, {
                             year: "numeric",
                             month: "long",
                             day: "numeric",
-                          }).format(new Date(item.decidedAt))}
+                          }).format(new Date(item.decidedAt ?? item.createdAt))}
                           {item.supersededAt && (
                             <>
                               {" "}

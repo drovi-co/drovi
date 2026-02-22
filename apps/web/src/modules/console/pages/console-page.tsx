@@ -13,15 +13,25 @@
 import { Button } from "@memorystack/ui-core/button";
 import { Card, CardContent } from "@memorystack/ui-core/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@memorystack/ui-core/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@memorystack/ui-core/dropdown-menu";
+import { Input } from "@memorystack/ui-core/input";
 import { Skeleton } from "@memorystack/ui-core/skeleton";
 import {
   AlertTriangle,
   BarChart3,
+  Bookmark,
+  BookmarkPlus,
   Calendar,
   CheckCircle2,
   ChevronDown,
@@ -33,10 +43,12 @@ import {
   PieChart,
   ScrollText,
   Sparkles,
+  Trash2,
   TrendingUp,
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { ConsoleSearchBarRef } from "@/components/console";
 import {
   ConsoleDataTable,
@@ -47,14 +59,23 @@ import {
   TimeseriesChart,
   TopListChart,
 } from "@/components/console";
-import type { ConsoleItem } from "@/hooks/use-console-query";
-import { useConsoleQuery } from "@/hooks/use-console-query";
+import type { ConsoleItem, SavedSearch } from "@/hooks/use-console-query";
+import {
+  useConsoleQuery,
+  useDeleteSavedSearch,
+  useSaveSavedSearch,
+  useSavedSearches,
+} from "@/hooks/use-console-query";
 import { useT } from "@/i18n";
 import { authClient } from "@/lib/auth-client";
 import type {
   ParsedFilter,
   ParsedQuery,
   TimeRange,
+} from "@/lib/console-parser";
+import {
+  buildQueryString as buildConsoleQueryString,
+  parseConsoleQuery as parseSavedConsoleQuery,
 } from "@/lib/console-parser";
 import { cn } from "@/lib/utils";
 
@@ -227,6 +248,22 @@ export function ConsolePage() {
     freeText: [],
     timeRange: null,
   });
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
+
+  const queryStringForSave = useMemo(
+    () => buildConsoleQueryString(parsedQuery).trim(),
+    [parsedQuery]
+  );
+  const canSaveCurrentSearch = queryStringForSave.length > 0;
+
+  const {
+    data: savedSearches = [],
+    isLoading: isSavedSearchesLoading,
+    error: savedSearchesError,
+  } = useSavedSearches(organizationId);
+  const saveSavedSearchMutation = useSaveSavedSearch(organizationId);
+  const deleteSavedSearchMutation = useDeleteSavedSearch(organizationId);
 
   // Visualization state
   const [groupBy, setGroupBy] = useState<string | null>(null);
@@ -294,6 +331,63 @@ export function ConsolePage() {
       timeRange: null,
     }));
   }, []);
+
+  const handleOpenSaveDialog = useCallback(() => {
+    if (!canSaveCurrentSearch) {
+      toast.message("Run a search with filters or text before saving.");
+      return;
+    }
+
+    const fallbackName = queryStringForSave.slice(0, 48);
+    setSaveName(fallbackName);
+    setSaveDialogOpen(true);
+  }, [canSaveCurrentSearch, queryStringForSave]);
+
+  const handleSaveSearch = useCallback(async () => {
+    const trimmedName = saveName.trim();
+    if (!trimmedName) {
+      toast.error("Search name is required.");
+      return;
+    }
+    if (!queryStringForSave) {
+      toast.error("There is no query to save.");
+      return;
+    }
+
+    try {
+      await saveSavedSearchMutation.mutateAsync({
+        name: trimmedName,
+        query: queryStringForSave,
+      });
+      toast.success(`Saved search "${trimmedName}"`);
+      setSaveDialogOpen(false);
+    } catch {
+      toast.error("Failed to save search.");
+    }
+  }, [queryStringForSave, saveName, saveSavedSearchMutation]);
+
+  const handleApplySavedSearch = useCallback((savedSearch: SavedSearch) => {
+    try {
+      const parsed = parseSavedConsoleQuery(savedSearch.query);
+      setParsedQuery(parsed);
+      setSearchValue("");
+      toast.success(`Applied "${savedSearch.name}"`);
+    } catch {
+      toast.error("Failed to apply saved search.");
+    }
+  }, []);
+
+  const handleDeleteSavedSearch = useCallback(
+    async (savedSearchId: string) => {
+      try {
+        await deleteSavedSearchMutation.mutateAsync(savedSearchId);
+        toast.success("Saved search deleted.");
+      } catch {
+        toast.error("Failed to delete saved search.");
+      }
+    },
+    [deleteSavedSearchMutation]
+  );
 
   // Handle opening detail panel
   const handleOpenDetail = useCallback((item: ConsoleItem) => {
@@ -436,6 +530,58 @@ export function ConsolePage() {
             timeRange={parsedQuery.timeRange}
             value={searchValue}
           />
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <Button
+              className="h-7 gap-1.5 px-2.5 text-xs"
+              disabled={!canSaveCurrentSearch || saveSavedSearchMutation.isPending}
+              onClick={handleOpenSaveDialog}
+              size="sm"
+              variant="outline"
+            >
+              <BookmarkPlus className="size-3.5" />
+              Save Search
+            </Button>
+
+            <span className="text-muted-foreground text-xs">Saved</span>
+
+            {isSavedSearchesLoading ? (
+              <Skeleton className="h-7 w-40" />
+            ) : savedSearches.length === 0 ? (
+              <span className="text-muted-foreground text-xs">
+                No saved searches yet
+              </span>
+            ) : (
+              savedSearches.map((savedSearch) => (
+                <div className="flex items-center gap-1" key={savedSearch.id}>
+                  <Button
+                    className="h-7 max-w-[220px] justify-start truncate px-2 text-xs"
+                    onClick={() => handleApplySavedSearch(savedSearch)}
+                    size="sm"
+                    title={savedSearch.query}
+                    variant="outline"
+                  >
+                    <Bookmark className="mr-1 size-3.5 shrink-0" />
+                    <span className="truncate">{savedSearch.name}</span>
+                  </Button>
+                  <Button
+                    className="size-7"
+                    disabled={deleteSavedSearchMutation.isPending}
+                    onClick={() => handleDeleteSavedSearch(savedSearch.id)}
+                    size="icon"
+                    title={`Delete ${savedSearch.name}`}
+                    variant="ghost"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+          {savedSearchesError ? (
+            <p className="mt-2 text-destructive text-xs">
+              Failed to load saved searches.
+            </p>
+          ) : null}
         </div>
 
         {/* Metrics Cards */}
@@ -676,6 +822,64 @@ export function ConsolePage() {
           open={detailOpen}
           organizationId={organizationId}
         />
+        <Dialog onOpenChange={setSaveDialogOpen} open={saveDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Save Current Search</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                  Name
+                </p>
+                <Input
+                  autoFocus
+                  maxLength={120}
+                  onChange={(event) => setSaveName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void handleSaveSearch();
+                    }
+                  }}
+                  placeholder="My saved search"
+                  value={saveName}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                  Query
+                </p>
+                <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs">
+                  {queryStringForSave || "No active query."}
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                onClick={() => setSaveDialogOpen(false)}
+                variant="ghost"
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={
+                  saveSavedSearchMutation.isPending ||
+                  !queryStringForSave ||
+                  !saveName.trim()
+                }
+                onClick={() => {
+                  void handleSaveSearch();
+                }}
+              >
+                Save
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

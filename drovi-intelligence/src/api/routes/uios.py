@@ -218,6 +218,88 @@ class SupersedeGenericRequest(BaseModel):
     uio_type: Literal["commitment", "task", "risk"] = Field(..., description="UIO type")
 
 
+class DecisionSupersessionChainItem(BaseModel):
+    """Single decision in a supersession chain."""
+
+    id: str
+    title: str
+    statement: str | None = None
+    decided_at: datetime | None = None
+    created_at: datetime
+    superseded_at: datetime | None = None
+    supersedes_uio_id: str | None = None
+    superseded_by_uio_id: str | None = None
+    is_current: bool = False
+
+
+class DecisionSupersessionChainResponse(BaseModel):
+    """Ordered supersession chain (oldest -> newest) for a decision."""
+
+    anchor_uio_id: str
+    chain: list[DecisionSupersessionChainItem]
+
+
+class CommitmentFollowUpGenerateRequest(BaseModel):
+    """Generate a follow-up draft for a commitment."""
+
+    tone: Literal["friendly", "neutral", "firm"] = "neutral"
+
+
+class CommitmentFollowUpDraftOutput(BaseModel):
+    """Structured LLM output for a follow-up draft."""
+
+    subject: str = Field(..., min_length=3, max_length=200)
+    body: str = Field(..., min_length=10, max_length=4000)
+
+
+class LLMTraceResponse(BaseModel):
+    """Traceability metadata for generated follow-up drafts."""
+
+    provider: str
+    model: str
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    duration_ms: int = 0
+    cost_usd: float | None = None
+    success: bool = True
+    error: str | None = None
+
+
+class CommitmentFollowUpResponse(BaseModel):
+    """Response payload for commitment follow-up generation."""
+
+    uio_id: str
+    recipient_name: str | None = None
+    recipient_email: str | None = None
+    subject: str
+    body: str
+    draft: str
+    generation_mode: Literal["llm", "fallback"] = "llm"
+    generated_at: datetime
+    trace: LLMTraceResponse | None = None
+    fallback_reason: str | None = None
+
+
+class UIOCommentCreateRequest(BaseModel):
+    """Create a persisted team discussion comment for a UIO."""
+
+    body: str = Field(..., min_length=1, max_length=4000)
+
+
+class UIOCommentResponse(BaseModel):
+    """Persisted UIO discussion comment."""
+
+    id: str
+    uio_id: str
+    organization_id: str
+    body: str
+    author_user_id: str | None = None
+    author_email: str | None = None
+    author_label: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
 # =============================================================================
 # Extended Response Models (Full Contact Resolution)
 # =============================================================================
@@ -1769,6 +1851,386 @@ async def verify_uio(
         raise HTTPException(status_code=500, detail="Failed to verify UIO")
 
 
+@router.get("/{uio_id}/comments", response_model=list[UIOCommentResponse])
+async def list_uio_comments(
+    uio_id: str,
+    organization_id: str | None = None,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> list[UIOCommentResponse]:
+    """List persisted team discussion comments for a UIO."""
+    from src.db.client import get_db_session
+    from sqlalchemy import text
+
+    org_id = organization_id or ctx.organization_id
+    if not org_id or org_id == "internal":
+        raise HTTPException(status_code=400, detail="organization_id is required")
+
+    _validate_org_id(ctx, org_id)
+
+    try:
+        async with get_db_session() as session:
+            exists_result = await session.execute(
+                text(
+                    """
+                    SELECT 1
+                    FROM unified_intelligence_object
+                    WHERE id = :uio_id AND organization_id = :org_id
+                    """
+                ),
+                {"uio_id": uio_id, "org_id": org_id},
+            )
+            if not exists_result.fetchone():
+                raise HTTPException(status_code=404, detail="UIO not found")
+
+            result = await session.execute(
+                text(
+                    """
+                    SELECT
+                        id,
+                        uio_id,
+                        organization_id,
+                        body,
+                        author_user_id,
+                        author_email,
+                        author_label,
+                        created_at,
+                        updated_at
+                    FROM uio_discussion_comment
+                    WHERE uio_id = :uio_id
+                      AND organization_id = :org_id
+                    ORDER BY created_at ASC
+                    """
+                ),
+                {"uio_id": uio_id, "org_id": org_id},
+            )
+            rows = result.fetchall()
+
+            return [
+                UIOCommentResponse(
+                    id=row.id,
+                    uio_id=row.uio_id,
+                    organization_id=row.organization_id,
+                    body=row.body,
+                    author_user_id=row.author_user_id,
+                    author_email=row.author_email,
+                    author_label=row.author_label,
+                    created_at=row.created_at,
+                    updated_at=row.updated_at,
+                )
+                for row in rows
+            ]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to list UIO comments", uio_id=uio_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to list comments")
+
+
+@router.post("/{uio_id}/comments", response_model=UIOCommentResponse)
+async def create_uio_comment(
+    uio_id: str,
+    request: UIOCommentCreateRequest,
+    organization_id: str | None = None,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE)),
+) -> UIOCommentResponse:
+    """Create a persisted team discussion comment for a UIO."""
+    from src.db.client import get_db_session
+    from sqlalchemy import text
+
+    org_id = organization_id or ctx.organization_id
+    if not org_id or org_id == "internal":
+        raise HTTPException(status_code=400, detail="organization_id is required")
+
+    _validate_org_id(ctx, org_id)
+
+    body = request.body.strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="Comment body cannot be empty")
+
+    comment_id = str(uuid4())
+    author_user_id = ctx.user_id or _get_session_user_id(ctx)
+    author_email = ctx.user_email
+    author_label = (
+        ctx.user_email
+        or author_user_id
+        or ctx.key_name
+        or ctx.key_id
+        or "system"
+    )
+
+    try:
+        async with get_db_session() as session:
+            exists_result = await session.execute(
+                text(
+                    """
+                    SELECT 1
+                    FROM unified_intelligence_object
+                    WHERE id = :uio_id AND organization_id = :org_id
+                    """
+                ),
+                {"uio_id": uio_id, "org_id": org_id},
+            )
+            if not exists_result.fetchone():
+                raise HTTPException(status_code=404, detail="UIO not found")
+
+            inserted = await session.execute(
+                text(
+                    """
+                    INSERT INTO uio_discussion_comment (
+                        id,
+                        organization_id,
+                        uio_id,
+                        body,
+                        author_user_id,
+                        author_email,
+                        author_label,
+                        created_at,
+                        updated_at
+                    ) VALUES (
+                        :id,
+                        :org_id,
+                        :uio_id,
+                        :body,
+                        :author_user_id,
+                        :author_email,
+                        :author_label,
+                        NOW(),
+                        NOW()
+                    )
+                    RETURNING
+                        id,
+                        uio_id,
+                        organization_id,
+                        body,
+                        author_user_id,
+                        author_email,
+                        author_label,
+                        created_at,
+                        updated_at
+                    """
+                ),
+                {
+                    "id": comment_id,
+                    "org_id": org_id,
+                    "uio_id": uio_id,
+                    "body": body,
+                    "author_user_id": author_user_id,
+                    "author_email": author_email,
+                    "author_label": author_label,
+                },
+            )
+            row = inserted.fetchone()
+            await session.commit()
+
+            if not row:
+                raise HTTPException(status_code=500, detail="Failed to create comment")
+
+            return UIOCommentResponse(
+                id=row.id,
+                uio_id=row.uio_id,
+                organization_id=row.organization_id,
+                body=row.body,
+                author_user_id=row.author_user_id,
+                author_email=row.author_email,
+                author_label=row.author_label,
+                created_at=row.created_at,
+                updated_at=row.updated_at,
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to create UIO comment", uio_id=uio_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to create comment")
+
+
+@router.post("/{uio_id}/commitment-follow-up", response_model=CommitmentFollowUpResponse)
+async def generate_commitment_follow_up(
+    uio_id: str,
+    request: CommitmentFollowUpGenerateRequest,
+    organization_id: str | None = None,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> CommitmentFollowUpResponse:
+    """Generate a commitment follow-up draft with traceability metadata."""
+    from src.db.client import get_db_session
+    from sqlalchemy import text
+
+    org_id = organization_id or ctx.organization_id
+    if not org_id or org_id == "internal":
+        raise HTTPException(status_code=400, detail="organization_id is required")
+
+    _validate_org_id(ctx, org_id)
+
+    commitment_query = text(
+        """
+        SELECT
+            u.id,
+            u.canonical_title,
+            u.canonical_description,
+            u.due_date,
+            cd.direction,
+            debtor.display_name AS debtor_name,
+            debtor.primary_email AS debtor_email,
+            creditor.display_name AS creditor_name,
+            creditor.primary_email AS creditor_email,
+            owner.display_name AS owner_name,
+            owner.primary_email AS owner_email
+        FROM unified_intelligence_object u
+        JOIN uio_commitment_details cd ON cd.uio_id = u.id
+        LEFT JOIN contact debtor ON debtor.id = cd.debtor_contact_id
+        LEFT JOIN contact creditor ON creditor.id = cd.creditor_contact_id
+        LEFT JOIN contact owner ON owner.id = u.owner_contact_id
+        WHERE u.id = :uio_id
+          AND u.organization_id = :org_id
+          AND u.type = 'commitment'
+        """
+    )
+
+    def _fallback_draft(
+        *,
+        commitment_title: str,
+        recipient_name: str | None,
+        due_date_text: str | None,
+        tone: str,
+    ) -> tuple[str, str]:
+        greeting_name = recipient_name.strip() if recipient_name else None
+        greeting = f"Hi {greeting_name}," if greeting_name else "Hi,"
+        tone_line = {
+            "friendly": "Hope you're doing well.",
+            "neutral": "I wanted to follow up on this commitment.",
+            "firm": "I'm following up on this commitment and need a status update.",
+        }.get(tone, "I wanted to follow up on this commitment.")
+        due_segment = f" The current due date is {due_date_text}." if due_date_text else ""
+        subject = f"Follow-up: {commitment_title}"
+        body = (
+            f"{greeting}\n\n"
+            f"{tone_line}\n\n"
+            f"Can you share the latest status on \"{commitment_title}\"?{due_segment}\n\n"
+            "Thanks."
+        )
+        return subject, body
+
+    try:
+        async with get_db_session() as session:
+            result = await session.execute(
+                commitment_query,
+                {"uio_id": uio_id, "org_id": org_id},
+            )
+            row = result.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Commitment not found")
+
+            title = (row.canonical_title or "").strip() or "Our commitment"
+            due_date_text = (
+                row.due_date.strftime("%B %d, %Y")
+                if row.due_date is not None
+                else None
+            )
+
+            recipient_name = None
+            recipient_email = None
+            if row.direction == "owed_to_me":
+                recipient_name = row.debtor_name or row.owner_name
+                recipient_email = row.debtor_email or row.owner_email
+            elif row.direction == "owed_by_me":
+                recipient_name = row.creditor_name or row.owner_name
+                recipient_email = row.creditor_email or row.owner_email
+            else:
+                recipient_name = row.debtor_name or row.creditor_name or row.owner_name
+                recipient_email = row.debtor_email or row.creditor_email or row.owner_email
+
+            prompt = (
+                "Draft a concise follow-up email for a commitment.\n"
+                f"- Tone: {request.tone}\n"
+                f"- Commitment title: {title}\n"
+                f"- Commitment summary: {(row.canonical_description or '').strip() or 'No additional summary provided.'}\n"
+                f"- Recipient name: {(recipient_name or '').strip() or 'there'}\n"
+                f"- Recipient email: {(recipient_email or '').strip() or 'unknown'}\n"
+                f"- Due date: {due_date_text or 'unspecified'}\n"
+                "Requirements:\n"
+                "- Subject should be clear and specific.\n"
+                "- Body should be professional, short, and ask for a concrete status update.\n"
+                "- Do not include markdown.\n"
+                "- Keep the body under 120 words.\n"
+            )
+
+            from src.llm import get_llm_service
+
+            llm = get_llm_service()
+
+            try:
+                draft_output, llm_call = await llm.complete_structured(
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "You draft high-quality follow-up emails for professional commitments. "
+                                "Return only valid JSON with subject and body."
+                            ),
+                        },
+                        {"role": "user", "content": prompt},
+                    ],
+                    output_schema=CommitmentFollowUpDraftOutput,
+                    model_tier="balanced",
+                    temperature=0.2,
+                    max_tokens=380,
+                    node_name="commitment_follow_up_draft",
+                )
+
+                subject = draft_output.subject.strip()
+                body = draft_output.body.strip()
+                draft = f"Subject: {subject}\n\n{body}"
+
+                return CommitmentFollowUpResponse(
+                    uio_id=uio_id,
+                    recipient_name=recipient_name,
+                    recipient_email=recipient_email,
+                    subject=subject,
+                    body=body,
+                    draft=draft,
+                    generation_mode="llm",
+                    generated_at=datetime.now(timezone.utc),
+                    trace=LLMTraceResponse(
+                        provider=llm_call.provider,
+                        model=llm_call.model,
+                        prompt_tokens=llm_call.prompt_tokens,
+                        completion_tokens=llm_call.completion_tokens,
+                        duration_ms=llm_call.duration_ms,
+                        cost_usd=llm_call.cost_usd,
+                        success=llm_call.success,
+                        error=llm_call.error,
+                    ),
+                )
+
+            except Exception as llm_error:
+                subject, body = _fallback_draft(
+                    commitment_title=title,
+                    recipient_name=recipient_name,
+                    due_date_text=due_date_text,
+                    tone=request.tone,
+                )
+                draft = f"Subject: {subject}\n\n{body}"
+                return CommitmentFollowUpResponse(
+                    uio_id=uio_id,
+                    recipient_name=recipient_name,
+                    recipient_email=recipient_email,
+                    subject=subject,
+                    body=body,
+                    draft=draft,
+                    generation_mode="fallback",
+                    generated_at=datetime.now(timezone.utc),
+                    trace=None,
+                    fallback_reason=str(llm_error),
+                )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to generate commitment follow-up", uio_id=uio_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to generate commitment follow-up")
+
+
 @router.post("/{uio_id}/snooze", response_model=UIOResponse)
 async def snooze_uio(
     uio_id: str,
@@ -2294,6 +2756,137 @@ async def supersede_decision(
     except Exception as e:
         logger.error("Failed to supersede decision", uio_id=uio_id, error=str(e))
         raise HTTPException(status_code=500, detail="Failed to supersede decision")
+
+
+@router.get(
+    "/{uio_id}/decision-supersession-chain",
+    response_model=DecisionSupersessionChainResponse,
+)
+async def get_decision_supersession_chain(
+    uio_id: str,
+    organization_id: str | None = None,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+) -> DecisionSupersessionChainResponse:
+    """Get full supersession chain for a decision (oldest -> newest)."""
+    from src.db.client import get_db_session
+    from sqlalchemy import text
+
+    org_id = organization_id or ctx.organization_id
+    if not org_id or org_id == "internal":
+        raise HTTPException(status_code=400, detail="organization_id is required")
+
+    _validate_org_id(ctx, org_id)
+
+    decision_query = text(
+        """
+        SELECT
+            u.id,
+            u.canonical_title,
+            u.created_at,
+            u.updated_at,
+            dd.statement,
+            dd.decided_at,
+            dd.supersedes_uio_id,
+            dd.superseded_by_uio_id
+        FROM unified_intelligence_object u
+        JOIN uio_decision_details dd ON dd.uio_id = u.id
+        WHERE u.id = :uio_id
+          AND u.organization_id = :org_id
+          AND u.type = 'decision'
+        """
+    )
+
+    try:
+        async with get_db_session() as session:
+
+            async def fetch_decision(decision_id: str):
+                result = await session.execute(
+                    decision_query,
+                    {"uio_id": decision_id, "org_id": org_id},
+                )
+                return result.fetchone()
+
+            anchor_row = await fetch_decision(uio_id)
+            if not anchor_row:
+                raise HTTPException(status_code=404, detail="Decision not found")
+
+            cached_rows: dict[str, object] = {anchor_row.id: anchor_row}
+            backward_seen: set[str] = set()
+            current = anchor_row
+            oldest_id = anchor_row.id
+
+            # Walk backward to the origin decision.
+            while current and current.id not in backward_seen:
+                backward_seen.add(current.id)
+                oldest_id = current.id
+                parent_id = current.supersedes_uio_id
+                if not parent_id:
+                    break
+                parent_row = cached_rows.get(parent_id)
+                if parent_row is None:
+                    parent_row = await fetch_decision(parent_id)
+                    if parent_row:
+                        cached_rows[parent_id] = parent_row
+                if not parent_row:
+                    break
+                current = parent_row
+
+            # Walk forward from oldest to latest decision.
+            chain_rows = []
+            forward_seen: set[str] = set()
+            cursor_id = oldest_id
+            while cursor_id and cursor_id not in forward_seen:
+                row = cached_rows.get(cursor_id)
+                if row is None:
+                    row = await fetch_decision(cursor_id)
+                    if row:
+                        cached_rows[cursor_id] = row
+                if not row:
+                    break
+                chain_rows.append(row)
+                forward_seen.add(cursor_id)
+                cursor_id = row.superseded_by_uio_id
+
+            chain_items: list[DecisionSupersessionChainItem] = []
+            for index, row in enumerate(chain_rows):
+                next_row = chain_rows[index + 1] if index + 1 < len(chain_rows) else None
+                decided_at = row.decided_at or row.created_at
+                superseded_at = (
+                    (next_row.decided_at or next_row.created_at)
+                    if next_row
+                    else None
+                )
+                chain_items.append(
+                    DecisionSupersessionChainItem(
+                        id=row.id,
+                        title=row.canonical_title or "Untitled decision",
+                        statement=row.statement,
+                        decided_at=decided_at,
+                        created_at=row.created_at,
+                        superseded_at=superseded_at,
+                        supersedes_uio_id=row.supersedes_uio_id,
+                        superseded_by_uio_id=row.superseded_by_uio_id,
+                        is_current=next_row is None,
+                    )
+                )
+
+            return DecisionSupersessionChainResponse(
+                anchor_uio_id=uio_id,
+                chain=chain_items,
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to fetch decision supersession chain",
+            uio_id=uio_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch decision supersession chain",
+        )
 
 
 @router.post("/{uio_id}/supersede-generic", response_model=UIOResponse)

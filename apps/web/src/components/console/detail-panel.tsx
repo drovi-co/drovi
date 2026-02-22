@@ -1034,9 +1034,55 @@ export function ConsoleDetailPanel({
                             </span>
                           </div>
                         </div>
-                        <p className="text-muted-foreground text-xs">
-                          Detailed confidence breakdown coming soon
-                        </p>
+                        {item.confidence_breakdown ? (
+                          <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {item.confidence_tier && (
+                                <Badge className="capitalize" variant="outline">
+                                  {item.confidence_tier} confidence
+                                </Badge>
+                              )}
+                              {item.confidence_breakdown.model_tier && (
+                                <Badge className="capitalize" variant="secondary">
+                                  model tier: {item.confidence_breakdown.model_tier}
+                                </Badge>
+                              )}
+                              {item.confidence_breakdown.model_used && (
+                                <Badge variant="secondary">
+                                  {item.confidence_breakdown.model_used}
+                                </Badge>
+                              )}
+                              {item.confidence_breakdown.evidence_count !== null && (
+                                <Badge variant="outline">
+                                  {item.confidence_breakdown.evidence_count} evidence signal
+                                  {item.confidence_breakdown.evidence_count === 1 ? "" : "s"}
+                                </Badge>
+                              )}
+                            </div>
+
+                            {item.confidence_breakdown.confidence_reasoning && (
+                              <p className="text-sm">
+                                {item.confidence_breakdown.confidence_reasoning}
+                              </p>
+                            )}
+
+                            {item.confidence_breakdown.extraction_reasoning && (
+                              <p className="text-muted-foreground text-xs">
+                                Extraction notes: {item.confidence_breakdown.extraction_reasoning}
+                              </p>
+                            )}
+
+                            {item.confidence_breakdown.quoted_text && (
+                              <blockquote className="border-l-2 pl-2 text-muted-foreground text-xs italic">
+                                "{item.confidence_breakdown.quoted_text}"
+                              </blockquote>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-muted-foreground text-xs">
+                            No detailed extraction context was recorded for this item.
+                          </p>
+                        )}
                       </>
                     ) : (
                       <p className="text-muted-foreground text-sm">

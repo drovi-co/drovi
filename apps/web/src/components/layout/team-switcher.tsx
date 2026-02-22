@@ -14,6 +14,7 @@ import {
 } from "@memorystack/ui-core/sidebar";
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronsUpDown, Plus } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 
@@ -25,12 +26,26 @@ export function TeamSwitcher() {
     authClient.useListOrganizations();
   const { data: activeOrg, isPending: activeOrgLoading } =
     authClient.useActiveOrganization();
+  const [switchingOrgId, setSwitchingOrgId] = useState<string | null>(null);
 
   const handleOrgSwitch = async (orgId: string) => {
-    if (activeOrg?.id === orgId) {
+    if (activeOrg?.id === orgId || switchingOrgId) {
       return;
     }
-    toast("Multi-organization support is coming soon.");
+    try {
+      setSwitchingOrgId(orgId);
+      await authClient.organization.setActive({ organizationId: orgId });
+      const targetOrg = organizations?.find((org) => org.id === orgId);
+      toast.success(`Switched to ${targetOrg?.name ?? "organization"}`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to switch organization"
+      );
+    } finally {
+      setSwitchingOrgId(null);
+    }
   };
 
   const handleCreateOrg = () => {
@@ -119,6 +134,7 @@ export function TeamSwitcher() {
             {organizations?.map((org) => (
               <DropdownMenuItem
                 className="gap-2 p-2"
+                disabled={switchingOrgId !== null}
                 key={org.id}
                 onClick={() => handleOrgSwitch(org.id)}
               >
@@ -128,9 +144,13 @@ export function TeamSwitcher() {
                   </span>
                 </div>
                 <span className="flex-1">{org.name}</span>
-                {org.id === activeOrg?.id && (
+                {switchingOrgId === org.id ? (
+                  <span className="text-muted-foreground text-xs">
+                    Switching...
+                  </span>
+                ) : org.id === activeOrg?.id ? (
                   <span className="text-muted-foreground text-xs">Active</span>
-                )}
+                ) : null}
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />

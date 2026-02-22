@@ -11,7 +11,9 @@ export interface SyncStatus {
 
 export interface OAuthInitResponse {
   auth_url: string;
+  authorization_url?: string;
   state: string;
+  code_verifier?: string;
 }
 
 export interface EmailAuthResponse {
@@ -37,4 +39,34 @@ export interface EmailAuthResponse {
     region?: string | null;
     created_at?: string | null;
   }> | null;
+}
+
+export interface OrganizationMembership {
+  id: string;
+  name: string;
+  role: string;
+  status: string;
+  region?: string | null;
+  created_at?: string | null;
+}
+
+export interface OrganizationsResponse {
+  organizations: OrganizationMembership[];
+  active_org_id: string;
+}
+
+export interface SwitchOrganizationResponse {
+  session_token: string;
+  active_org_id: string;
+}
+
+export interface PasswordResetRequestResponse {
+  ok: boolean;
+  message: string;
+  reset_token?: string | null;
+  reset_link?: string | null;
+}
+
+export interface PasswordResetConfirmResponse {
+  ok: boolean;
 }

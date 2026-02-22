@@ -15,12 +15,13 @@ export const Route = createFileRoute("/reset-password")({
 
 function ResetPasswordPage() {
   const t = useT();
+  const search = Route.useSearch();
   return (
     <AuthLayout
       description={t("auth.passwordReset.layoutDescription")}
       title={t("auth.passwordReset.layoutTitle")}
     >
-      <ResetPasswordForm />
+      <ResetPasswordForm initialToken={search.token} />
     </AuthLayout>
   );
 }

@@ -15,12 +15,18 @@ Blindspot Types:
 - communication_silo: Information not reaching stakeholders
 """
 
+from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
+import hashlib
 from typing import Any
+from uuid import uuid4
 
 import structlog
 from pydantic import BaseModel, Field
+
+from src.db import get_raw_query_pool
+from src.db.rls import rls_context
 
 logger = structlog.get_logger()
 
@@ -106,6 +112,16 @@ class OrganizationProfile(BaseModel):
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+@dataclass
+class BlindspotFeedbackSnapshot:
+    """Recent blindspot dismissal feedback used to tune detections."""
+
+    dismissed_ids: set[str] = field(default_factory=set)
+    dismissed_fingerprints: set[str] = field(default_factory=set)
+    dismissal_counts_by_type: dict[str, int] = field(default_factory=dict)
+    records_by_id: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
 class BlindspotDetectionService:
     """
     Service for detecting organizational blindspots.
@@ -126,10 +142,205 @@ class BlindspotDetectionService:
             from ..graph.client import get_graph_client
             self._graph = await get_graph_client()
 
+    @staticmethod
+    def _normalize_for_fingerprint(value: str | None) -> str:
+        if not value:
+            return ""
+        return " ".join(value.strip().lower().split())
+
+    def _blindspot_fingerprint(self, blindspot: BlindspotIndicator) -> str:
+        evidence = ",".join(sorted(str(item) for item in blindspot.evidence_ids[:8]))
+        contacts = ",".join(
+            sorted(self._normalize_for_fingerprint(name) for name in blindspot.affected_contacts[:8])
+        )
+        topics = ",".join(
+            sorted(self._normalize_for_fingerprint(name) for name in blindspot.affected_topics[:8])
+        )
+        seed = "|".join(
+            [
+                blindspot.blindspot_type.value,
+                self._normalize_for_fingerprint(blindspot.title),
+                self._normalize_for_fingerprint(blindspot.description),
+                evidence,
+                contacts,
+                topics,
+            ]
+        )
+        return hashlib.sha256(seed.encode("utf-8")).hexdigest()
+
+    async def _load_feedback_snapshot(
+        self,
+        organization_id: str,
+        *,
+        window_days: int = 120,
+    ) -> BlindspotFeedbackSnapshot:
+        snapshot = BlindspotFeedbackSnapshot()
+        try:
+            pool = await get_raw_query_pool()
+            query = """
+                SELECT
+                    blindspot_id,
+                    blindspot_type,
+                    fingerprint,
+                    dismissal_count
+                FROM blindspot_feedback
+                WHERE organization_id = $1
+                  AND feedback_action = 'dismissed'
+                  AND last_dismissed_at >= NOW() - ($2::int * INTERVAL '1 day')
+            """
+            with rls_context(organization_id, is_internal=True):
+                async with pool.acquire() as conn:
+                    rows = await conn.fetch(query, organization_id, int(window_days))
+
+            for row in rows:
+                blindspot_id = str(row.get("blindspot_id") or "")
+                blindspot_type = str(row.get("blindspot_type") or "")
+                fingerprint = str(row.get("fingerprint") or "")
+                dismissal_count_raw = row.get("dismissal_count")
+                try:
+                    dismissal_count = int(dismissal_count_raw or 0)
+                except (TypeError, ValueError):
+                    dismissal_count = 0
+
+                if blindspot_id:
+                    snapshot.dismissed_ids.add(blindspot_id)
+                    snapshot.records_by_id[blindspot_id] = {
+                        "blindspot_type": blindspot_type,
+                        "fingerprint": fingerprint,
+                    }
+                if fingerprint:
+                    snapshot.dismissed_fingerprints.add(fingerprint)
+                if blindspot_type:
+                    snapshot.dismissal_counts_by_type[blindspot_type] = (
+                        snapshot.dismissal_counts_by_type.get(blindspot_type, 0)
+                        + max(dismissal_count, 1)
+                    )
+        except Exception as e:
+            logger.warning(
+                "Failed to load blindspot feedback snapshot",
+                organization_id=organization_id,
+                error=str(e),
+            )
+
+        return snapshot
+
+    def _apply_feedback_tuning(
+        self,
+        blindspots: list[BlindspotIndicator],
+        feedback: BlindspotFeedbackSnapshot,
+    ) -> list[BlindspotIndicator]:
+        if not blindspots:
+            return blindspots
+
+        tuned: list[BlindspotIndicator] = []
+        for blindspot in blindspots:
+            blindspot_fingerprint = self._blindspot_fingerprint(blindspot)
+            if (
+                blindspot.id in feedback.dismissed_ids
+                or blindspot_fingerprint in feedback.dismissed_fingerprints
+            ):
+                continue
+
+            type_key = blindspot.blindspot_type.value
+            type_dismissals = feedback.dismissal_counts_by_type.get(type_key, 0)
+
+            if type_dismissals >= 12 and blindspot.severity in {
+                BlindspotSeverity.LOW,
+                BlindspotSeverity.MEDIUM,
+            }:
+                continue
+            if type_dismissals >= 6 and blindspot.severity == BlindspotSeverity.LOW:
+                continue
+
+            if type_dismissals > 0:
+                metadata = dict(blindspot.metadata or {})
+                metadata["feedback_tuning"] = {
+                    "recent_type_dismissals": type_dismissals,
+                }
+                blindspot.metadata = metadata
+
+            tuned.append(blindspot)
+
+        return tuned
+
+    async def _persist_blindspot_dismissal(
+        self,
+        *,
+        organization_id: str,
+        blindspot_id: str,
+        blindspot_type: str,
+        fingerprint: str,
+        reason: str,
+        dismissed_by_subject: str | None,
+        blindspot: BlindspotIndicator | None,
+    ) -> None:
+        metadata: dict[str, Any] = {"source": "analytics.blindspot_detection"}
+        if blindspot is not None:
+            metadata.update(
+                {
+                    "title": blindspot.title,
+                    "severity": blindspot.severity.value,
+                    "evidence_ids": blindspot.evidence_ids,
+                    "affected_topics": blindspot.affected_topics,
+                    "affected_contacts": blindspot.affected_contacts,
+                }
+            )
+
+        query = """
+            INSERT INTO blindspot_feedback (
+                id,
+                organization_id,
+                blindspot_id,
+                blindspot_type,
+                fingerprint,
+                feedback_action,
+                reason,
+                dismissed_by_subject,
+                metadata,
+                dismissal_count,
+                created_at,
+                updated_at,
+                last_dismissed_at
+            ) VALUES (
+                $1, $2, $3, $4, $5,
+                'dismissed',
+                $6, $7, $8::jsonb,
+                1,
+                NOW(), NOW(), NOW()
+            )
+            ON CONFLICT (organization_id, feedback_action, fingerprint)
+            DO UPDATE SET
+                blindspot_id = EXCLUDED.blindspot_id,
+                blindspot_type = EXCLUDED.blindspot_type,
+                reason = EXCLUDED.reason,
+                dismissed_by_subject = EXCLUDED.dismissed_by_subject,
+                metadata = COALESCE(blindspot_feedback.metadata, '{}'::jsonb) || EXCLUDED.metadata,
+                dismissal_count = blindspot_feedback.dismissal_count + 1,
+                updated_at = NOW(),
+                last_dismissed_at = NOW()
+        """
+
+        pool = await get_raw_query_pool()
+        with rls_context(organization_id, is_internal=True):
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    query,
+                    str(uuid4()),
+                    organization_id,
+                    blindspot_id,
+                    blindspot_type,
+                    fingerprint,
+                    reason,
+                    dismissed_by_subject,
+                    metadata,
+                )
+
     async def analyze_organization(
         self,
         organization_id: str,
         days: int = 30,
+        *,
+        apply_feedback_tuning: bool = True,
     ) -> OrganizationProfile:
         """
         Generate comprehensive organizational profile with blindspot detection.
@@ -205,6 +416,10 @@ class BlindspotDetectionService:
             blindspots.extend(
                 await self._detect_stale_commitments(organization_id, days)
             )
+
+            if apply_feedback_tuning:
+                feedback = await self._load_feedback_snapshot(organization_id)
+                blindspots = self._apply_feedback_tuning(blindspots, feedback)
 
             profile.blindspots = blindspots
 
@@ -713,6 +928,7 @@ class BlindspotDetectionService:
         organization_id: str,
         blindspot_id: str,
         reason: str,
+        dismissed_by_subject: str | None = None,
     ) -> bool:
         """
         Dismiss a blindspot with feedback.
@@ -732,14 +948,45 @@ class BlindspotDetectionService:
             organization_id=organization_id,
             blindspot_id=blindspot_id,
             reason=reason,
+            dismissed_by_subject=dismissed_by_subject,
         )
 
-        # In a full implementation, we'd store the dismissal
-        # and learn from the feedback to improve detection
-        # For now, we just log it and return success
         try:
-            # Store dismissal in graph (optional - can be added later)
-            # await self._graph.query(...)
+            normalized_reason = reason.strip()
+            if not normalized_reason:
+                return False
+
+            feedback_snapshot = await self._load_feedback_snapshot(organization_id)
+            known_record = feedback_snapshot.records_by_id.get(blindspot_id)
+
+            profile = await self.analyze_organization(
+                organization_id=organization_id,
+                days=90,
+                apply_feedback_tuning=False,
+            )
+            matched = next((b for b in profile.blindspots if b.id == blindspot_id), None)
+
+            if matched is None and not known_record:
+                return False
+
+            if matched is not None:
+                blindspot_type = matched.blindspot_type.value
+                fingerprint = self._blindspot_fingerprint(matched)
+            else:
+                blindspot_type = str(known_record.get("blindspot_type") or "unknown")
+                fingerprint = str(known_record.get("fingerprint") or "")
+                if not fingerprint:
+                    fingerprint = hashlib.sha256(blindspot_id.encode("utf-8")).hexdigest()
+
+            await self._persist_blindspot_dismissal(
+                organization_id=organization_id,
+                blindspot_id=blindspot_id,
+                blindspot_type=blindspot_type,
+                fingerprint=fingerprint,
+                reason=normalized_reason,
+                dismissed_by_subject=dismissed_by_subject,
+                blindspot=matched,
+            )
             return True
         except Exception as e:
             logger.error("Failed to dismiss blindspot", error=str(e))

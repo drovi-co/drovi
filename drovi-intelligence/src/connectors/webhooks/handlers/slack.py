@@ -213,61 +213,16 @@ class SlackWebhookHandler:
         2. Queue a sync job via the scheduler
         3. Sync only messages since the given timestamp
         """
-        # Import here to avoid circular imports
-        from src.connectors.scheduling.scheduler import get_scheduler
-
         try:
-            scheduler = get_scheduler()
-
-            # Find connection for this team
-            connection_id = await self._find_connection_for_team(team_id)
-            if not connection_id:
-                logger.warning(
-                    "No connection found for Slack team",
-                    team_id=team_id,
-                )
-                return
-
-            organization_id = await self._get_org_id_for_connection(connection_id)
-            if not organization_id:
-                logger.warning(
-                    "No organization found for Slack connection",
-                    connection_id=connection_id,
-                )
-                return
-
-            sync_params = {"channel_id": channel_id, "since_ts": since_ts}
-
-            from src.streaming import is_streaming_enabled
-
-            await enqueue_webhook_event(
-                provider="slack",
-                connection_id=connection_id,
-                organization_id=organization_id,
+            await self._queue_slack_sync_event(
+                team_id=team_id,
                 event_type="slack.message",
                 payload={"team_id": team_id, "channel_id": channel_id, "since_ts": since_ts},
-                sync_params=sync_params,
+                sync_params={"channel_id": channel_id, "since_ts": since_ts},
                 streams=["messages"],
+                full_refresh=False,
                 event_id=f"{team_id}:{channel_id}:{since_ts}" if since_ts else f"{team_id}:{channel_id}",
             )
-
-            # Queue incremental sync job only if Kafka is disabled
-            if not is_streaming_enabled():
-                await scheduler.trigger_sync_by_id(
-                    connection_id=connection_id,
-                    organization_id=organization_id,
-                    streams=["messages"],
-                    full_refresh=False,
-                    sync_params=sync_params,
-                )
-
-            logger.info(
-                "Incremental sync queued for Slack channel",
-                team_id=team_id,
-                channel_id=channel_id,
-                connection_id=connection_id,
-            )
-
         except Exception as e:
             logger.error(
                 "Failed to queue Slack incremental sync",
@@ -293,17 +248,27 @@ class SlackWebhookHandler:
         if not channel_id or not message_ts:
             return
 
-        logger.info(
-            "Updating Slack message metadata",
+        await self._queue_slack_sync_event(
             team_id=team_id,
-            channel_id=channel_id,
-            message_ts=message_ts,
-            reaction=reaction,
-            reaction_added=added,
+            event_type="slack.message_metadata",
+            payload={
+                "team_id": team_id,
+                "channel_id": channel_id,
+                "message_ts": message_ts,
+                "reaction": reaction,
+                "reaction_added": added,
+            },
+            sync_params={
+                "channel_id": channel_id,
+                "message_ts": message_ts,
+                "metadata_only": True,
+                "reaction": reaction,
+                "reaction_added": added,
+            },
+            streams=["messages"],
+            full_refresh=False,
+            event_id=f"{team_id}:{channel_id}:{message_ts}:{reaction}:{'add' if added else 'remove'}",
         )
-
-        # In production: update message in database
-        # For now, just log the event
 
     async def _refresh_channel_list(self, team_id: str) -> None:
         """
@@ -311,13 +276,84 @@ class SlackWebhookHandler:
 
         Called when channels are created, deleted, or modified.
         """
-        logger.info(
-            "Refreshing Slack channel list",
+        await self._queue_slack_sync_event(
             team_id=team_id,
+            event_type="slack.refresh_channels",
+            payload={"team_id": team_id},
+            sync_params={"refresh_channels": True},
+            streams=["channels"],
+            full_refresh=True,
+            event_id=f"{team_id}:refresh_channels",
         )
 
-        # In production: queue channel discovery job
-        # For now, just log the event
+    async def _queue_slack_sync_event(
+        self,
+        *,
+        team_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+        sync_params: dict[str, Any],
+        streams: list[str],
+        full_refresh: bool,
+        event_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        """
+        Queue a Slack webhook-derived event through the inbox/outbox path.
+        """
+        from src.connectors.scheduling.scheduler import SyncJobType, get_scheduler
+        from src.streaming import is_streaming_enabled
+
+        scheduler = get_scheduler()
+
+        connection_id = await self._find_connection_for_team(team_id)
+        if not connection_id:
+            logger.warning(
+                "No connection found for Slack team",
+                team_id=team_id,
+                event_type=event_type,
+            )
+            return None
+
+        organization_id = await self._get_org_id_for_connection(connection_id)
+        if not organization_id:
+            logger.warning(
+                "No organization found for Slack connection",
+                connection_id=connection_id,
+                event_type=event_type,
+            )
+            return None
+
+        result = await enqueue_webhook_event(
+            provider="slack",
+            connection_id=connection_id,
+            organization_id=organization_id,
+            event_type=event_type,
+            payload=payload,
+            sync_params=sync_params,
+            streams=streams,
+            event_id=event_id,
+        )
+        inserted = bool(result.get("inserted"))
+
+        if inserted and not is_streaming_enabled():
+            await scheduler.trigger_sync_by_id(
+                connection_id=connection_id,
+                organization_id=organization_id,
+                streams=streams,
+                full_refresh=full_refresh,
+                job_type=SyncJobType.WEBHOOK,
+                sync_params=sync_params,
+            )
+
+        logger.info(
+            "Slack webhook event queued",
+            team_id=team_id,
+            event_type=event_type,
+            connection_id=connection_id,
+            inserted=inserted,
+            kafka_enabled=is_streaming_enabled(),
+        )
+        return result
 
     async def _find_connection_for_team(self, team_id: str) -> str | None:
         """
@@ -330,17 +366,43 @@ class SlackWebhookHandler:
         try:
             pool = await get_db_pool()
             async with pool.acquire() as conn:
-                row = await conn.fetchrow(
+                row = None
+                if team_id:
+                    row = await conn.fetchrow(
+                        """
+                        SELECT id
+                        FROM connections
+                        WHERE connector_type = 'slack'
+                          AND status = 'active'
+                          AND (
+                            config->>'team_id' = $1
+                            OR config->>'teamId' = $1
+                            OR config->>'team' = $1
+                            OR config->'team'->>'id' = $1
+                          )
+                        ORDER BY updated_at DESC
+                        LIMIT 1
+                        """,
+                        team_id,
+                    )
+                if row:
+                    return str(row["id"])
+
+                # Fallback for older connections missing team_id metadata:
+                # route only when a single active Slack connection exists.
+                candidates = await conn.fetch(
                     """
-                    SELECT id FROM connections
+                    SELECT id
+                    FROM connections
                     WHERE connector_type = 'slack'
-                    AND config->>'team_id' = $1
-                    AND status = 'active'
-                    LIMIT 1
-                    """,
-                    team_id,
+                      AND status = 'active'
+                    ORDER BY updated_at DESC
+                    LIMIT 2
+                    """
                 )
-                return row["id"] if row else None
+                if len(candidates) == 1:
+                    return str(candidates[0]["id"])
+                return None
 
         except Exception as e:
             logger.error(

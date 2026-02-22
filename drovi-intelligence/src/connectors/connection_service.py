@@ -5,16 +5,18 @@ Provides unified access to connection configurations with decrypted tokens.
 Bridges the database models with the connector framework.
 """
 
-from base64 import urlsafe_b64encode
 from datetime import datetime, timedelta
 from typing import Any
 
 import structlog
 import httpx
-from cryptography.fernet import Fernet
 from sqlalchemy import select, text
 
 from src.config import get_settings
+from src.connectors.auth.token_crypto import (
+    decrypt_connector_token,
+    encrypt_connector_token,
+)
 from src.connectors.base.config import AuthConfig, AuthType, ConnectorConfig, StreamConfig, SyncMode
 from src.connectors.definitions.oauth_providers import get_oauth_provider_spec
 from src.connectors.definitions.registry import get_connector_definition
@@ -24,29 +26,14 @@ from src.db.models.connections import Connection, OAuthToken
 logger = structlog.get_logger()
 
 
-def get_fernet() -> Fernet:
-    """
-    Get Fernet cipher using the same key derivation as auth.py.
-
-    This must match the encryption used when storing tokens.
-    """
-    settings = get_settings()
-    encryption_key = settings.api_key_salt or "default-key-change-me"
-    key_bytes = encryption_key.encode()[:32].ljust(32, b"0")
-    fernet_key = urlsafe_b64encode(key_bytes)
-    return Fernet(fernet_key)
-
-
 def decrypt_token(encrypted: bytes) -> str:
     """Decrypt a token using the application Fernet key."""
-    fernet = get_fernet()
-    return fernet.decrypt(encrypted).decode()
+    return decrypt_connector_token(encrypted)
 
 
 def encrypt_token(value: str) -> bytes:
     """Encrypt a token using the application Fernet key."""
-    fernet = get_fernet()
-    return fernet.encrypt(value.encode())
+    return encrypt_connector_token(value)
 
 
 def _resolve_oauth_provider(

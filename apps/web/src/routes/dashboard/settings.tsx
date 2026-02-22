@@ -1,3 +1,4 @@
+import { Badge } from "@memorystack/ui-core/badge";
 import { Button } from "@memorystack/ui-core/button";
 import {
   Card,
@@ -16,6 +17,7 @@ import {
   SelectValue,
 } from "@memorystack/ui-core/select";
 import { Separator } from "@memorystack/ui-core/separator";
+import { Switch } from "@memorystack/ui-core/switch";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -30,7 +32,13 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ApiErrorPanel } from "@/components/layout/api-error-panel";
 import { useI18n, useT } from "@/i18n";
-import { authAPI, type OrgInfo, orgAPI } from "@/lib/api";
+import {
+  authAPI,
+  type OrgInfo,
+  type OrgSecurityPolicy,
+  orgAPI,
+  orgSecurityAPI,
+} from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { useSupportModalStore } from "@/lib/support-modal";
 
@@ -43,6 +51,8 @@ const REGIONS = [
   { id: "us-east", labelKey: "settings.regions.usEast" },
   { id: "eu-central", labelKey: "settings.regions.euCentral" },
 ];
+
+const SSO_FALLBACK_ENV_OPTIONS = ["development", "test", "production"] as const;
 
 function SettingsPage() {
   const { data: session } = authClient.useSession();
@@ -64,9 +74,25 @@ function SettingsPage() {
     queryFn: () => orgAPI.getOrgInfo(),
   });
 
+  const {
+    data: securityPolicy,
+    isLoading: securityLoading,
+    isError: securityError,
+    error: securityErrorObj,
+    refetch: refetchSecurity,
+  } = useQuery({
+    queryKey: ["org-security-policy"],
+    queryFn: () => orgSecurityAPI.getPolicy(),
+    enabled: Boolean(user),
+  });
+
   const [orgDraft, setOrgDraft] = useState<OrgInfo | null>(null);
+  const [securityDraft, setSecurityDraft] = useState<OrgSecurityPolicy | null>(
+    null
+  );
 
   const activeOrg = orgDraft ?? orgInfo ?? null;
+  const activeSecurity = securityDraft ?? securityPolicy ?? null;
   const allowedDomains = useMemo(
     () => (activeOrg?.allowed_domains ?? []).join(", "),
     [activeOrg]
@@ -74,6 +100,18 @@ function SettingsPage() {
   const notificationEmails = useMemo(
     () => (activeOrg?.notification_emails ?? []).join(", "),
     [activeOrg]
+  );
+  const securityFallbackEnvironments = useMemo(
+    () => (activeSecurity?.password_fallback_environments ?? []).join(", "),
+    [activeSecurity]
+  );
+  const securityIpAllowlist = useMemo(
+    () => (activeSecurity?.ip_allowlist ?? []).join(", "),
+    [activeSecurity]
+  );
+  const securityBreakGlassActions = useMemo(
+    () => (activeSecurity?.break_glass_required_actions ?? []).join(", "),
+    [activeSecurity]
   );
 
   const updateOrgMutation = useMutation({
@@ -134,6 +172,54 @@ function SettingsPage() {
         .split(",")
         .map((email) => email.trim())
         .filter(Boolean),
+    });
+  };
+
+  const updateSecurityMutation = useMutation({
+    mutationFn: (payload: {
+      sso_enforced?: boolean;
+      password_fallback_enabled?: boolean;
+      password_fallback_environments?: string[];
+      ip_allowlist?: string[];
+      evidence_masking_enabled?: boolean;
+      break_glass_enabled?: boolean;
+      break_glass_required_actions?: string[];
+    }) => orgSecurityAPI.updatePolicy(payload),
+    onSuccess: (updated) => {
+      setSecurityDraft(updated);
+      toast.success("Security policy saved.");
+    },
+    onError: () => {
+      toast.error("Failed to save security policy.");
+    },
+  });
+
+  const updateSecurityDraft = (updater: (base: OrgSecurityPolicy) => OrgSecurityPolicy) => {
+    setSecurityDraft((prev) => {
+      const base = prev ?? securityPolicy;
+      if (!base) return prev;
+      return updater(base);
+    });
+  };
+
+  const parseCsvValues = (value: string, lowerCase = false): string[] =>
+    value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => (lowerCase ? item.toLowerCase() : item));
+
+  const handleSecuritySave = () => {
+    if (!activeSecurity) return;
+    updateSecurityMutation.mutate({
+      sso_enforced: activeSecurity.sso_enforced,
+      password_fallback_enabled: activeSecurity.password_fallback_enabled,
+      password_fallback_environments:
+        activeSecurity.password_fallback_environments,
+      ip_allowlist: activeSecurity.ip_allowlist,
+      evidence_masking_enabled: activeSecurity.evidence_masking_enabled,
+      break_glass_enabled: activeSecurity.break_glass_enabled,
+      break_glass_required_actions: activeSecurity.break_glass_required_actions,
     });
   };
 
@@ -383,13 +469,261 @@ function SettingsPage() {
                 {t("settings.security.description")}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="rounded-lg border border-border bg-muted/40 p-4 text-muted-foreground text-sm">
-                {t("settings.security.note")}
-              </div>
-              <Button className="w-full" disabled variant="outline">
-                {t("settings.security.manageSoon")}
-              </Button>
+            <CardContent className="space-y-4">
+              {securityLoading ? (
+                <div className="text-muted-foreground text-sm">
+                  Loading security policy...
+                </div>
+              ) : securityError ? (
+                <ApiErrorPanel
+                  error={securityErrorObj}
+                  onRetry={() => refetchSecurity()}
+                />
+              ) : activeSecurity ? (
+                <>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="space-y-1">
+                        <p className="font-medium text-sm">SSO management</p>
+                        <p className="text-muted-foreground text-xs">
+                          Control organization sign-in mode and safe fallbacks.
+                        </p>
+                      </div>
+                      <Badge
+                        variant={
+                          activeSecurity.sso_enforced ? "default" : "secondary"
+                        }
+                      >
+                        {activeSecurity.sso_enforced
+                          ? "SSO enforced"
+                          : "Mixed authentication"}
+                      </Badge>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        disabled={!isOrgAdmin}
+                        onClick={() =>
+                          updateSecurityDraft((base) => ({
+                            ...base,
+                            sso_enforced: true,
+                            password_fallback_enabled: false,
+                            password_fallback_environments: [],
+                          }))
+                        }
+                        size="sm"
+                        variant="outline"
+                      >
+                        Enforce SSO only
+                      </Button>
+                      <Button
+                        disabled={!isOrgAdmin}
+                        onClick={() =>
+                          updateSecurityDraft((base) => ({
+                            ...base,
+                            sso_enforced: true,
+                            password_fallback_enabled: true,
+                            password_fallback_environments: ["development"],
+                          }))
+                        }
+                        size="sm"
+                        variant="outline"
+                      >
+                        SSO + dev fallback
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
+                    <div>
+                      <p className="font-medium text-sm">Enforce SSO</p>
+                      <p className="text-muted-foreground text-xs">
+                        Require SSO sign-in for organization members.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={activeSecurity.sso_enforced}
+                      disabled={!isOrgAdmin}
+                      onCheckedChange={(checked) =>
+                        updateSecurityDraft((base) => ({
+                          ...base,
+                          sso_enforced: checked === true,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
+                    <div>
+                      <p className="font-medium text-sm">
+                        Allow password fallback
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        Allow password sessions in selected environments.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={activeSecurity.password_fallback_enabled}
+                      disabled={!isOrgAdmin}
+                      onCheckedChange={(checked) =>
+                        updateSecurityDraft((base) => ({
+                          ...base,
+                          password_fallback_enabled: checked === true,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>Password fallback environments</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {SSO_FALLBACK_ENV_OPTIONS.map((env) => {
+                        const enabled =
+                          activeSecurity.password_fallback_environments.includes(
+                            env
+                          );
+                        return (
+                          <Button
+                            disabled={
+                              !isOrgAdmin ||
+                              !activeSecurity.password_fallback_enabled
+                            }
+                            key={env}
+                            onClick={() =>
+                              updateSecurityDraft((base) => ({
+                                ...base,
+                                password_fallback_environments: enabled
+                                  ? base.password_fallback_environments.filter(
+                                      (item) => item !== env
+                                    )
+                                  : Array.from(
+                                      new Set([
+                                        ...base.password_fallback_environments,
+                                        env,
+                                      ])
+                                    ),
+                              }))
+                            }
+                            size="sm"
+                            variant={enabled ? "default" : "outline"}
+                          >
+                            {env}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <Input
+                      disabled={
+                        !isOrgAdmin || !activeSecurity.password_fallback_enabled
+                      }
+                      onChange={(event) =>
+                        updateSecurityDraft((base) => ({
+                          ...base,
+                          password_fallback_environments: parseCsvValues(
+                            event.target.value,
+                            true
+                          ),
+                        }))
+                      }
+                      placeholder="development,test"
+                      value={securityFallbackEnvironments}
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>IP allowlist (comma-separated)</Label>
+                    <Input
+                      disabled={!isOrgAdmin}
+                      onChange={(event) =>
+                        updateSecurityDraft((base) => ({
+                          ...base,
+                          ip_allowlist: parseCsvValues(event.target.value),
+                        }))
+                      }
+                      placeholder="203.0.113.10,198.51.100.0/24"
+                      value={securityIpAllowlist}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
+                    <div>
+                      <p className="font-medium text-sm">
+                        Evidence masking enabled
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        Mask sensitive evidence content by default.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={activeSecurity.evidence_masking_enabled}
+                      disabled={!isOrgAdmin}
+                      onCheckedChange={(checked) =>
+                        updateSecurityDraft((base) => ({
+                          ...base,
+                          evidence_masking_enabled: checked === true,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
+                    <div>
+                      <p className="font-medium text-sm">Break-glass enabled</p>
+                      <p className="text-muted-foreground text-xs">
+                        Allow temporary audited access grants.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={activeSecurity.break_glass_enabled}
+                      disabled={!isOrgAdmin}
+                      onCheckedChange={(checked) =>
+                        updateSecurityDraft((base) => ({
+                          ...base,
+                          break_glass_enabled: checked === true,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>Break-glass required actions</Label>
+                    <Input
+                      disabled={!isOrgAdmin}
+                      onChange={(event) =>
+                        updateSecurityDraft((base) => ({
+                          ...base,
+                          break_glass_required_actions: parseCsvValues(
+                            event.target.value,
+                            true
+                          ),
+                        }))
+                      }
+                      placeholder="evidence.full,connections.manage"
+                      value={securityBreakGlassActions}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <p className="text-muted-foreground text-xs">
+                      {isOrgAdmin
+                        ? "Security settings apply organization-wide."
+                        : "You can view this policy, but only admins can edit it."}
+                    </p>
+                    <Button
+                      disabled={!isOrgAdmin || updateSecurityMutation.isPending}
+                      onClick={handleSecuritySave}
+                      variant="outline"
+                    >
+                      {updateSecurityMutation.isPending
+                        ? "Saving..."
+                        : "Save policy"}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-lg border border-border bg-muted/40 p-4 text-muted-foreground text-sm">
+                  {t("settings.security.note")}
+                </div>
+              )}
             </CardContent>
           </Card>
 

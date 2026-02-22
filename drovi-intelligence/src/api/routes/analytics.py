@@ -284,6 +284,7 @@ async def dismiss_blindspot(
         organization_id=organization_id,
         blindspot_id=blindspot_id,
         reason=reason,
+        dismissed_by_subject=ctx.auth_subject_id or ctx.key_id,
     )
 
     if not success:

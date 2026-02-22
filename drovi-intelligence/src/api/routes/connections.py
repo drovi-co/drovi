@@ -10,6 +10,7 @@ Provides endpoints for managing data source connections:
 
 from datetime import datetime, timedelta, timezone
 import inspect
+import secrets
 from typing import Any
 
 import structlog
@@ -22,6 +23,7 @@ from src.config import get_settings
 from src.connectors.base.config import AuthType, SyncMode
 from src.connectors.base.connector import ConnectorRegistry
 from src.connectors.connector_requirements import get_missing_env_for_connector
+from src.connectors.definitions.registry import get_connector_definition
 
 logger = structlog.get_logger()
 
@@ -35,6 +37,32 @@ def _validate_org_id(ctx: APIKeyContext, organization_id: str) -> None:
             status_code=403,
             detail="Organization ID mismatch with authenticated key",
         )
+
+
+def _resolve_oauth_provider_and_scopes(connector_type: str):
+    """Resolve OAuth provider/scopes for a connector type."""
+    from src.connectors.auth.oauth2 import OAuth2Provider
+
+    definition = get_connector_definition(connector_type)
+    if not definition or not definition.oauth_provider:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Connector '{connector_type}' does not support OAuth",
+        )
+
+    try:
+        provider = OAuth2Provider(definition.oauth_provider)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Connector '{connector_type}' maps to unsupported OAuth provider "
+                f"'{definition.oauth_provider}'"
+            ),
+        ) from exc
+
+    scopes = list(definition.oauth_scopes) if definition.oauth_scopes else None
+    return provider, scopes
 
 
 # =============================================================================
@@ -86,6 +114,7 @@ class OAuthInitResponse(BaseModel):
     """Response with OAuth authorization URL."""
 
     authorization_url: str
+    auth_url: str
     state: str
 
 
@@ -428,9 +457,13 @@ async def delete_connection(
 
     Requires `write:connections` scope.
     """
-    from sqlalchemy import select
+    from sqlalchemy import delete, select, update
     from src.db.client import get_db_session
-    from src.db.models.connections import Connection
+    from src.db.models.background_jobs import BackgroundJob
+    from src.db.models.connections import Connection, OAuthToken, SyncJobHistory, SyncState
+    from src.db.models.connector_webhooks import ConnectorWebhookInbox
+    from src.connectors.auth.oauth2 import configure_oauth
+    from src.connectors.auth.token_store import get_token_store
 
     async with get_db_session() as session:
         result = await session.execute(
@@ -440,12 +473,64 @@ async def delete_connection(
 
         if not connection:
             raise HTTPException(status_code=404, detail="Connection not found")
+        _validate_org_id(ctx, str(connection.organization_id))
 
-        # TODO: Revoke OAuth tokens
-        # TODO: Cancel scheduled syncs
+    # Best-effort OAuth revocation before deleting local records.
+    try:
+        provider, _scopes = _resolve_oauth_provider_and_scopes(connection.connector_type)
+        token_store = await get_token_store()
+        tokens = await token_store.get_tokens(
+            connection_id=connection_id,
+            organization_id=str(connection.organization_id),
+        )
+        if tokens:
+            settings = get_settings()
+            oauth_manager = configure_oauth(
+                google_client_id=settings.google_client_id,
+                google_client_secret=settings.google_client_secret,
+                microsoft_client_id=settings.microsoft_client_id,
+                microsoft_client_secret=settings.microsoft_client_secret,
+                slack_client_id=settings.slack_client_id,
+                slack_client_secret=settings.slack_client_secret,
+                notion_client_id=settings.notion_client_id,
+                notion_client_secret=settings.notion_client_secret,
+                hubspot_client_id=settings.hubspot_client_id,
+                hubspot_client_secret=settings.hubspot_client_secret,
+            )
+            await oauth_manager.revoke_token(provider=provider, tokens=tokens)
+    except HTTPException:
+        # Non-OAuth connectors are valid here.
+        pass
+    except Exception as exc:
+        logger.warning(
+            "OAuth revocation failed during connection delete",
+            connection_id=connection_id,
+            error=str(exc),
+        )
 
-        await session.delete(connection)
-        await session.commit()
+    async with get_db_session() as session:
+        # Cancel queued/running sync jobs for this connection.
+        await session.execute(
+            update(BackgroundJob)
+            .where(BackgroundJob.organization_id == str(connection.organization_id))
+            .where(BackgroundJob.resource_key == f"connection:{connection_id}")
+            .where(BackgroundJob.status.in_(("queued", "running")))
+            .values(
+                status="cancelled",
+                completed_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+                last_error="Cancelled because connection was deleted",
+            )
+        )
+
+        # Explicit child cleanup to avoid FK nullification issues.
+        await session.execute(delete(OAuthToken).where(OAuthToken.connection_id == connection.id))
+        await session.execute(delete(SyncState).where(SyncState.connection_id == connection.id))
+        await session.execute(delete(SyncJobHistory).where(SyncJobHistory.connection_id == connection.id))
+        await session.execute(
+            delete(ConnectorWebhookInbox).where(ConnectorWebhookInbox.connection_id == connection.id)
+        )
+        await session.execute(delete(Connection).where(Connection.id == connection.id))
 
     logger.info("Connection deleted", connection_id=connection_id)
 
@@ -470,19 +555,35 @@ async def initiate_oauth(
     Requires `write:connections` scope.
     """
     _validate_org_id(ctx, request.organization_id)
-    from src.connectors.auth.oauth2 import OAuth2Manager
+    from src.connectors.auth.oauth2 import configure_oauth
 
-    oauth_manager = OAuth2Manager()
+    provider, scopes = _resolve_oauth_provider_and_scopes(request.connector_type)
+    state = request.state or secrets.token_urlsafe(32)
+    settings = get_settings()
 
-    # Generate authorization URL
-    auth_url, state = await oauth_manager.get_authorization_url(
-        provider=request.connector_type,
+    oauth_manager = configure_oauth(
+        google_client_id=settings.google_client_id,
+        google_client_secret=settings.google_client_secret,
+        microsoft_client_id=settings.microsoft_client_id,
+        microsoft_client_secret=settings.microsoft_client_secret,
+        slack_client_id=settings.slack_client_id,
+        slack_client_secret=settings.slack_client_secret,
+        notion_client_id=settings.notion_client_id,
+        notion_client_secret=settings.notion_client_secret,
+        hubspot_client_id=settings.hubspot_client_id,
+        hubspot_client_secret=settings.hubspot_client_secret,
+    )
+
+    auth_url = oauth_manager.get_authorization_url(
+        provider=provider,
         redirect_uri=request.redirect_uri,
-        state=request.state,
+        state=state,
+        scopes=scopes,
     )
 
     return OAuthInitResponse(
         authorization_url=auth_url,
+        auth_url=auth_url,
         state=state,
     )
 
@@ -501,7 +602,7 @@ async def oauth_callback(
     from sqlalchemy import select
     from src.db.client import get_db_session
     from src.db.models.connections import Connection
-    from src.connectors.auth.oauth2 import OAuth2Manager
+    from src.connectors.auth.oauth2 import configure_oauth
     from src.connectors.auth.token_store import get_token_store
 
     # Get the connection
@@ -514,20 +615,43 @@ async def oauth_callback(
         if not connection:
             raise HTTPException(status_code=404, detail="Connection not found")
 
+        _validate_org_id(ctx, str(connection.organization_id))
+        provider, _scopes = _resolve_oauth_provider_and_scopes(connection.connector_type)
+        settings = get_settings()
+        oauth_manager = configure_oauth(
+            google_client_id=settings.google_client_id,
+            google_client_secret=settings.google_client_secret,
+            microsoft_client_id=settings.microsoft_client_id,
+            microsoft_client_secret=settings.microsoft_client_secret,
+            slack_client_id=settings.slack_client_id,
+            slack_client_secret=settings.slack_client_secret,
+            notion_client_id=settings.notion_client_id,
+            notion_client_secret=settings.notion_client_secret,
+            hubspot_client_id=settings.hubspot_client_id,
+            hubspot_client_secret=settings.hubspot_client_secret,
+        )
+
+        redirect_uri = str((connection.config or {}).get("redirect_uri") or "").strip()
+        if not redirect_uri:
+            raise HTTPException(
+                status_code=400,
+                detail="Connection is missing OAuth redirect_uri configuration",
+            )
+
         # Exchange code for tokens
-        oauth_manager = OAuth2Manager()
         token_data = await oauth_manager.exchange_code(
-            provider=connection.connector_type,
+            provider=provider,
             code=request.code,
-            redirect_uri=connection.config.get("redirect_uri", ""),
+            redirect_uri=redirect_uri,
         )
 
         # Store tokens
         token_store = await get_token_store()
-        await token_store.store_token(
+        await token_store.store_tokens(
             connection_id=connection_id,
-            provider=connection.connector_type,
-            token_data=token_data,
+            organization_id=str(connection.organization_id),
+            provider=provider.value,
+            tokens=token_data,
         )
 
         # Update connection status
@@ -1015,6 +1139,7 @@ async def test_connection(
 
         if not connection:
             raise HTTPException(status_code=404, detail="Connection not found")
+        _validate_org_id(ctx, str(connection.organization_id))
 
     # Get connector instance
     connector_class = ConnectorRegistry._connectors.get(connection.connector_type)
@@ -1025,9 +1150,12 @@ async def test_connection(
 
     # Get token
     token_store = await get_token_store()
-    token = await token_store.get_valid_token(connection_id, connection.connector_type)
+    tokens = await token_store.get_tokens(
+        connection_id=connection_id,
+        organization_id=str(connection.organization_id),
+    )
 
-    if not token:
+    if not tokens or tokens.is_expired:
         return {
             "connection_id": connection_id,
             "success": False,
@@ -1037,9 +1165,16 @@ async def test_connection(
     # Build config
     config = ConnectorConfig(
         connection_id=connection_id,
-        organization_id=connection.organization_id,
+        organization_id=str(connection.organization_id),
         connector_type=connection.connector_type,
-        auth=AuthConfig(auth_type=AuthType.OAUTH2, access_token=token),
+        name=connection.name,
+        auth=AuthConfig(
+            auth_type=AuthType.OAUTH2,
+            access_token=tokens.access_token,
+            refresh_token=tokens.refresh_token,
+            token_expires_at=tokens.expires_at,
+            scopes=tokens.scopes,
+        ),
     )
 
     # Test connection

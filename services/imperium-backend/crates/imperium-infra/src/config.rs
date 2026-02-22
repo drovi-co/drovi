@@ -179,6 +179,7 @@ pub struct ImperiumConfig {
     pub nats_url: String,
     pub redis_namespace: String,
     pub shutdown_grace_period: Duration,
+    pub apple_client_id: Option<String>,
     pub providers: ProviderCatalog,
 }
 
@@ -195,6 +196,7 @@ impl ImperiumConfig {
             "IMPERIUM_SHUTDOWN_GRACE_SECONDS",
             20,
         )?);
+        let apple_client_id = optional("IMPERIUM_APPLE_CLIENT_ID");
         let providers = ProviderCatalog::from_env()?;
 
         Ok(Self {
@@ -206,6 +208,7 @@ impl ImperiumConfig {
             nats_url,
             redis_namespace,
             shutdown_grace_period,
+            apple_client_id,
             providers,
         })
     }
@@ -221,6 +224,13 @@ impl ImperiumConfig {
 
 fn required(key: &str) -> Result<String, AppError> {
     std::env::var(key).map_err(|_| AppError::configuration(format!("missing {key}")))
+}
+
+fn optional(key: &str) -> Option<String> {
+    std::env::var(key)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 fn env_or_default(key: &str, default_value: &str) -> String {

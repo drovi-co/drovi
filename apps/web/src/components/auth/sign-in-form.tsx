@@ -103,9 +103,13 @@ export function SignInForm({ onSwitchToSignUp }: SignInFormProps) {
                 <Label className="text-foreground" htmlFor={field.name}>
                   {t("auth.password")}
                 </Label>
-                <span className="text-muted-foreground text-xs">
+                <button
+                  className="text-muted-foreground text-xs hover:text-foreground"
+                  onClick={() => navigate({ to: "/forgot-password" })}
+                  type="button"
+                >
                   {t("auth.signIn.passwordResetHint")}
-                </span>
+                </button>
               </div>
               <div className="relative">
                 <Input

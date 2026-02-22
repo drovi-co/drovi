@@ -64,6 +64,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { EvidenceRail } from "@/components/evidence";
+import { SourceViewerSheet } from "@/components/evidence/source-viewer-sheet";
+import { TeamDiscussion } from "@/components/unified-object/team-discussion";
 import {
   formatDueDate,
   PRIORITY_CONFIG,
@@ -158,6 +160,8 @@ function TaskDetailPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [sourceViewerOpen, setSourceViewerOpen] = useState(false);
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
@@ -519,6 +523,14 @@ function TaskDetailPage() {
     setDeleteDialogOpen(true);
   }, [task]);
 
+  const handleSourceClick = useCallback((sourceId?: string | null) => {
+    if (!sourceId) {
+      return;
+    }
+    setSelectedSourceId(sourceId);
+    setSourceViewerOpen(true);
+  }, []);
+
   const confirmDelete = useCallback(() => {
     if (!task) return;
     setDeleteDialogOpen(false);
@@ -843,13 +855,7 @@ function TaskDetailPage() {
                       <div
                         className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/50 p-3 transition-colors hover:border-secondary/50 hover:bg-muted"
                         key={source.id}
-                        onClick={() =>
-                          toast.message(
-                            tr(
-                              "pages.dashboard.tasks.detail.toasts.sourceViewerSoon"
-                            )
-                          )
-                        }
+                        onClick={() => handleSourceClick(source.id)}
                       >
                         <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <div className="min-w-0 flex-1">
@@ -953,10 +959,8 @@ function TaskDetailPage() {
                     {tr("pages.dashboard.tasks.detail.sections.teamDiscussion")}
                   </span>
                 </div>
-                <div className="mt-3 rounded-lg border border-dashed bg-muted/40 px-3 py-4 text-muted-foreground text-xs">
-                  {tr(
-                    "pages.dashboard.tasks.detail.teamDiscussion.placeholder"
-                  )}
+                <div className="mt-3">
+                  <TeamDiscussion organizationId={organizationId} uioId={task.id} />
                 </div>
               </div>
 
@@ -1244,6 +1248,18 @@ function TaskDetailPage() {
           </div>
         </div>
       </div>
+
+      <SourceViewerSheet
+        onOpenChange={(open) => {
+          setSourceViewerOpen(open);
+          if (!open) {
+            setSelectedSourceId(null);
+          }
+        }}
+        open={sourceViewerOpen}
+        organizationId={organizationId}
+        sourceId={selectedSourceId}
+      />
     </div>
   );
 }

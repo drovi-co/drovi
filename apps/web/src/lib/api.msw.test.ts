@@ -132,6 +132,7 @@ describe("sseAPI (disconnect handling)", () => {
 
     interface FakeEventSourceInstance {
       close: () => void;
+      addEventListener: (type: string, listener: EventListener) => void;
       onerror?: (event: Event) => void;
     }
 
@@ -140,6 +141,7 @@ describe("sseAPI (disconnect handling)", () => {
     class FakeEventSource implements FakeEventSourceInstance {
       onmessage?: (event: MessageEvent) => void;
       onerror?: (event: Event) => void;
+      addEventListener = vi.fn();
 
       constructor() {
         lastInstance = this;
