@@ -5,11 +5,9 @@ const milestones = [
   "Multi-source ingestion live",
   "Production extraction pipeline",
   "Bi-temporal ledger implemented",
-  "Enterprise pilots in legal & accounting",
-  "Agent runtime in development",
-  "Fine-tuned open-source AI models deployed",
   "Kafka + Temporal event fabric operational",
-  "Evidence store with content-hash immutability",
+  "Fine-tuned open-source models deployed",
+  "Enterprise pilots in legal and accounting",
 ];
 
 const SlideTraction = () => (
@@ -28,28 +26,21 @@ const SlideTraction = () => (
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.2 }}
-        className="text-2xl sm:text-3xl md:text-4xl font-serif text-ivory mb-8 sm:mb-12"
+        className="text-2xl sm:text-3xl md:text-4xl font-serif text-ivory mb-8"
       >
-        Infrastructure Already Running
+        Infrastructure is running.
       </motion.h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 sm:gap-x-8 gap-y-3 sm:gap-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
         {milestones.map((m, i) => (
           <motion.div
             key={m}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.5 + i * 0.12 }}
+            transition={{ duration: 0.4, delay: 0.45 + i * 0.1 }}
             className="flex items-center gap-3"
           >
-            <motion.span
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ duration: 0.3, delay: 0.7 + i * 0.12 }}
-              className="text-gold text-lg"
-            >
-              ✓
-            </motion.span>
+            <span className="text-gold text-lg">✓</span>
             <span className="font-sans text-ivory/80 text-sm">{m}</span>
           </motion.div>
         ))}
@@ -58,10 +49,10 @@ const SlideTraction = () => (
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 1.8 }}
-        className="mt-8 sm:mt-12 text-base sm:text-lg font-serif italic text-gold/70 text-center"
+        transition={{ duration: 0.8, delay: 1.25 }}
+        className="mt-8 text-base sm:text-lg font-serif italic text-gold/70 text-center"
       >
-        This is not a slideware company.
+        This is not slideware.
       </motion.p>
     </div>
   </SlideLayout>

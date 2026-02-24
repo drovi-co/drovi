@@ -1,105 +1,63 @@
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 
 import SlideLayout from "../SlideLayout";
 import WorldMap from "../visuals/WorldMap";
 
-const outcomes = [
-  {
-    metric: "10x",
-    label: "Target reduction in unseen high-severity external impact events",
-  },
-  {
-    metric: "5x",
-    label: "Faster root-cause reconstruction during executive incidents",
-  },
-  {
-    metric: ">90%",
-    label: "Evidence coverage goal on high-stakes belief transitions",
-  },
+const twinState = [
+  "Internal state",
+  "External signals",
+  "Exposure topology",
+  "Obligations",
+  "Strategic objectives",
 ];
 
-const entranceEase = [0.22, 1, 0.36, 1] as const;
-
-const stageVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      duration: 0.66,
-      ease: entranceEase,
-      staggerChildren: 0.08,
-      delayChildren: 0.05,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 18 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.58, ease: entranceEase },
-  },
-};
-
 const SlideWorldTwin = () => {
-  const reduceMotion = useReducedMotion();
-
   return (
     <SlideLayout>
       <motion.div
         className="mx-auto w-full max-w-6xl"
-        initial="hidden"
-        animate="show"
-        variants={stageVariants}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.7 }}
       >
-        <motion.p
-          className="mb-6 text-gold/60 text-xs uppercase tracking-[0.24em] sm:text-sm"
-          variants={itemVariants}
-        >
+        <motion.p className="mb-6 text-gold/60 text-xs uppercase tracking-[0.24em] sm:text-sm">
           Institutional World Twin
         </motion.p>
 
-        <motion.h2
-          className="max-w-4xl text-3xl text-ivory leading-tight sm:text-4xl md:text-5xl"
-          variants={itemVariants}
-        >
-          World pressure map: external change to internal consequence.
+        <motion.h2 className="max-w-4xl text-3xl text-ivory leading-tight sm:text-4xl md:text-5xl">
+          Each organization gets a live twin.
         </motion.h2>
 
-        <motion.div
-          className="mt-8"
-          animate={reduceMotion ? undefined : { y: [0, -4, 0] }}
-          transition={
-            reduceMotion
-              ? { duration: 0 }
-              : {
-                  duration: 6.4,
-                  repeat: Number.POSITIVE_INFINITY,
-                  ease: "easeInOut",
-                }
-          }
-          variants={itemVariants}
-        >
+        <div className="mt-5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+          {twinState.map((item, idx) => (
+            <motion.div
+              key={item}
+              className="rounded-xl border border-gold/20 bg-gold/5 px-3 py-2 text-sm text-ivory/86"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, delay: 0.2 + idx * 0.06 }}
+            >
+              {item}
+            </motion.div>
+          ))}
+        </div>
+
+        <motion.div className="mt-7" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, delay: 0.45 }}>
           <WorldMap />
         </motion.div>
 
-        <div className="mt-6 grid gap-3 md:grid-cols-3">
-          {outcomes.map((item, idx) => (
-            <motion.article
-              key={item.label}
-              className="rounded-2xl border border-gold/20 bg-gold/6 p-4"
-              variants={itemVariants}
-              transition={{ duration: 0.45, delay: idx * 0.06, ease: entranceEase }}
-              whileHover={{ y: -4, scale: 1.01 }}
-            >
-              <p className="text-2xl text-gold sm:text-3xl">{item.metric}</p>
-              <p className="mt-2 text-muted-foreground text-sm leading-relaxed">
-                {item.label}
-              </p>
-            </motion.article>
-          ))}
-        </div>
+        <motion.p
+          className="mt-6 text-base sm:text-lg font-serif text-muted-foreground"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.8 }}
+        >
+          When something changes externally:
+          <br />
+          The twin recalculates impact.
+          <br />
+          <span className="text-gold">Before you react, Drovi already has.</span>
+        </motion.p>
       </motion.div>
     </SlideLayout>
   );

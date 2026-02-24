@@ -2,12 +2,11 @@ import { motion } from "framer-motion";
 import SlideLayout from "../SlideLayout";
 
 const risks = [
-  "Decisions are reinterpreted.",
-  "Commitments are forgotten.",
-  "Advice contradicts itself.",
-  "Agents act on outdated context.",
-  "Risk accumulates silently.",
-  "Liability increases.",
+  "Decisions are reinterpreted",
+  "Commitments are forgotten",
+  "Advice contradicts itself",
+  "Risk accumulates silently",
+  "Agents act on outdated context",
 ];
 
 const SlideWhatBreaks = () => (
@@ -19,25 +18,25 @@ const SlideWhatBreaks = () => (
         transition={{ duration: 0.6 }}
         className="text-xs sm:text-sm font-sans uppercase tracking-[0.22em] sm:tracking-[0.3em] text-gold/60 mb-6 sm:mb-8"
       >
-        What Breaks
+        What Breaks Without a Ledger
       </motion.p>
 
       <motion.h2
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.2 }}
-        className="text-2xl sm:text-3xl md:text-4xl font-serif text-ivory mb-8 sm:mb-12"
+        className="text-2xl sm:text-3xl md:text-4xl font-serif text-ivory mb-8 sm:mb-10"
       >
-        When there is no authoritative record:
+        When there is no ledger:
       </motion.h2>
 
-      <div className="space-y-3 sm:space-y-4 mb-8 sm:mb-12">
+      <div className="space-y-3 sm:space-y-4 mb-8 sm:mb-10">
         {risks.map((risk, i) => (
           <motion.div
             key={risk}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 + i * 0.15 }}
+            transition={{ duration: 0.5, delay: 0.5 + i * 0.12 }}
             className="flex items-start sm:items-center gap-3 sm:gap-4"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />
@@ -46,14 +45,27 @@ const SlideWhatBreaks = () => (
         ))}
       </div>
 
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.7, delay: 1.3 }}
+        className="text-lg sm:text-xl font-serif text-gold/85 mb-5"
+      >
+        Liability increases.
+      </motion.p>
+
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 1.6 }}
-        className="border-t border-gold/20 pt-8 space-y-2"
+        transition={{ duration: 0.8, delay: 1.5 }}
+        className="border-t border-gold/20 pt-6 space-y-2"
       >
-        <p className="text-base sm:text-lg font-sans text-muted-foreground">AI without a ledger is <span className="text-gold">dangerous</span>.</p>
-        <p className="text-base sm:text-lg font-sans text-muted-foreground">Humans without a ledger are <span className="text-gold">inconsistent</span>.</p>
+        <p className="text-base sm:text-lg font-sans text-muted-foreground">
+          AI without a ledger is <span className="text-gold">blind</span>.
+        </p>
+        <p className="text-base sm:text-lg font-sans text-muted-foreground">
+          Humans without a ledger are <span className="text-gold">exposed</span>.
+        </p>
       </motion.div>
     </div>
   </SlideLayout>

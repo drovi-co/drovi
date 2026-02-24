@@ -5,15 +5,14 @@ import SlideProblem from "./slides/SlideProblem";
 import SlideWhatBreaks from "./slides/SlideWhatBreaks";
 import SlideWhatIsLedger from "./slides/SlideWhatIsLedger";
 import SlideDroviLedger from "./slides/SlideDroviLedger";
+import SlideTechArch from "./slides/SlideTechArch";
+import SlideAgents from "./slides/SlideAgents";
 import SlideWorldBrain from "./slides/SlideWorldBrain";
 import SlideWorldTwin from "./slides/SlideWorldTwin";
 import SlideWorldSurfaces from "./slides/SlideWorldSurfaces";
-import SlideTechArch from "./slides/SlideTechArch";
-import SlideAICore from "./slides/SlideAICore";
-import SlideAgents from "./slides/SlideAgents";
 import SlideMarkets from "./slides/SlideMarkets";
-import SlideWhyWeWin from "./slides/SlideWhyWeWin";
 import SlideBusinessModel from "./slides/SlideBusinessModel";
+import SlideWhyWeWin from "./slides/SlideWhyWeWin";
 import SlideTraction from "./slides/SlideTraction";
 import SlideFuture from "./slides/SlideFuture";
 import SlideTeam from "./slides/SlideTeam";
@@ -25,15 +24,14 @@ const slides = [
   SlideWhatBreaks,
   SlideWhatIsLedger,
   SlideDroviLedger,
+  SlideTechArch,
+  SlideAgents,
   SlideWorldBrain,
   SlideWorldTwin,
   SlideWorldSurfaces,
-  SlideTechArch,
-  SlideAICore,
-  SlideAgents,
   SlideMarkets,
-  SlideWhyWeWin,
   SlideBusinessModel,
+  SlideWhyWeWin,
   SlideTraction,
   SlideFuture,
   SlideTeam,

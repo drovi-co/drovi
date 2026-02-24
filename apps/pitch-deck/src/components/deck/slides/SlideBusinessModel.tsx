@@ -17,23 +17,25 @@ const SlideBusinessModel = () => (
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.2 }}
-        className="text-2xl sm:text-3xl md:text-4xl font-serif text-ivory mb-4"
+        className="text-2xl sm:text-3xl md:text-4xl font-serif text-ivory mb-8"
       >
-        Enterprise-First
+        High-ACV institutional contracts.
       </motion.h2>
 
       <motion.div
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: 1 }}
-        transition={{ duration: 0.6, delay: 0.5 }}
-        className="w-14 sm:w-16 h-[1px] bg-gold/40 mb-8 sm:mb-10"
-      />
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.7, delay: 0.45 }}
+        className="border border-gold/20 p-4 sm:p-6 text-center mb-8"
+      >
+        <p className="text-2xl sm:text-3xl font-serif text-gold">$80K – $150K</p>
+        <p className="text-sm font-sans text-muted-foreground mt-1">per firm per year</p>
+      </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 md:gap-x-12 gap-y-4 sm:gap-y-6 mb-8 sm:mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 mb-8">
         {[
-          "High ACV institutional contracts",
-          "Vertical packages (Legal, Capital, Construction)",
-          "Agent Runtime licensing",
+          "Vertical intelligence packs",
+          "Agent runtime licensing",
           "On-prem deployments",
           "Usage-based intelligence APIs",
         ].map((item, i) => (
@@ -41,7 +43,7 @@ const SlideBusinessModel = () => (
             key={item}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.6 + i * 0.12 }}
+            transition={{ duration: 0.4, delay: 0.65 + i * 0.1 }}
             className="flex items-center gap-3"
           >
             <span className="w-1 h-1 rounded-full bg-gold shrink-0" />
@@ -50,16 +52,14 @@ const SlideBusinessModel = () => (
         ))}
       </div>
 
-      <motion.div
+      <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 1.3 }}
-        className="border border-gold/20 p-4 sm:p-6 text-center"
+        transition={{ duration: 0.7, delay: 1.1 }}
+        className="font-serif italic text-lg text-gold/80"
       >
-        <p className="text-[11px] sm:text-xs font-sans uppercase tracking-[0.2em] sm:tracking-[0.3em] text-gold/50 mb-2">Target ACV</p>
-        <p className="text-2xl sm:text-3xl font-serif text-gold">$80K – $150K</p>
-        <p className="text-sm font-sans text-muted-foreground mt-1">per firm per year</p>
-      </motion.div>
+        This is infrastructure pricing.
+      </motion.p>
     </div>
   </SlideLayout>
 );

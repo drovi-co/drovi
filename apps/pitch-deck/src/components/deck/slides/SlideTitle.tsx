@@ -25,9 +25,11 @@ const SlideTitle = () => (
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1, delay: 1.2 }}
-        className="max-w-[24rem] text-xs sm:text-sm md:text-xl font-sans tracking-[0.12em] sm:tracking-[0.18em] md:tracking-[0.25em] uppercase leading-relaxed text-gold/80"
+        className="max-w-[32rem] text-base sm:text-xl md:text-3xl font-serif leading-relaxed text-ivory"
       >
-        The Institutional Ledger for Modern Firms
+        The Institutional Ledger
+        <br />
+        <span className="text-gold/85">For Modern Firms</span>
       </motion.p>
     </div>
   </SlideLayout>

@@ -4,9 +4,9 @@ import SlideLayout from "../SlideLayout";
 const advantages = [
   "We treat memory as infrastructure.",
   "We enforce proof before persistence.",
-  "We built bi-temporal institutional truth.",
-  "We integrate across systems, not replace them.",
-  "We support on-premise deployment for private capital.",
+  "We built bi-temporal institutional reality.",
+  "We integrate across systems rather than replace them.",
+  "We support on-prem for private capital and regulated firms.",
 ];
 
 const SlideWhyWeWin = () => (
@@ -18,43 +18,50 @@ const SlideWhyWeWin = () => (
         transition={{ duration: 0.6 }}
         className="text-xs sm:text-sm font-sans uppercase tracking-[0.22em] sm:tracking-[0.3em] text-gold/60 mb-6 sm:mb-8"
       >
-        Competitive Advantage
+        Why We Win
+      </motion.p>
+
+      <motion.p
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.2 }}
+        className="text-base sm:text-lg text-muted-foreground mb-2"
+      >
+        Most AI tools accelerate output.
       </motion.p>
 
       <motion.h2
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-        className="text-2xl sm:text-3xl md:text-5xl font-serif text-ivory mb-8 sm:mb-12"
+        transition={{ duration: 0.6, delay: 0.35 }}
+        className="text-2xl sm:text-3xl md:text-4xl font-serif text-gold mb-8"
       >
-        Why We Win
+        We institutionalize truth.
       </motion.h2>
 
-      <div className="space-y-4 sm:space-y-6 mb-8 sm:mb-12">
+      <div className="space-y-4 sm:space-y-5 mb-8">
         {advantages.map((adv, i) => (
           <motion.div
             key={adv}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 + i * 0.2 }}
-            className="flex items-baseline gap-4 sm:gap-6"
+            transition={{ duration: 0.45, delay: 0.5 + i * 0.1 }}
+            className="flex items-baseline gap-4"
           >
-            <span className="text-3xl sm:text-4xl font-serif font-bold text-gold/70">{i + 1}</span>
-            <span className="text-base sm:text-lg md:text-xl font-sans text-ivory/85">{adv}</span>
+            <span className="text-2xl font-serif font-bold text-gold/70">{i + 1}</span>
+            <span className="text-sm sm:text-base md:text-lg font-sans text-ivory/85">{adv}</span>
           </motion.div>
         ))}
       </div>
 
-      <motion.div
+      <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 1.6 }}
-        className="border-t border-gold/20 pt-6"
+        transition={{ duration: 0.7, delay: 1.1 }}
+        className="font-serif italic text-lg text-gold/85"
       >
-        <p className="font-serif italic text-base sm:text-lg text-muted-foreground">
-          Most AI tools accelerate output. <span className="text-gold">We institutionalize truth.</span>
-        </p>
-      </motion.div>
+        Ledger first. Agents second.
+      </motion.p>
     </div>
   </SlideLayout>
 );
