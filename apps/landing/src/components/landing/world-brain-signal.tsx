@@ -2,8 +2,8 @@
 
 import { motion } from "framer-motion";
 
-import Globe3DDemo from "@/components/3d-globe-demo";
-import WorldMapDemo from "@/components/world-map-demo";
+import { Globe3D, type GlobeMarker } from "@/components/ui/3d-globe";
+import WorldMap from "@/components/ui/world-map";
 
 interface WorldBrainSignalProps {
   onRequestAccess?: () => void;
@@ -13,6 +13,114 @@ const worldTwinSignals = [
   "Internal commitments and dependencies",
   "External regulatory, market, legal, scientific, geopolitical signals",
   "Exposure pathways linking the two",
+];
+
+const worldMapDots = [
+  {
+    start: { lat: 64.2008, lng: -149.4937 },
+    end: { lat: 34.0522, lng: -118.2437 },
+  },
+  {
+    start: { lat: 64.2008, lng: -149.4937 },
+    end: { lat: -15.7975, lng: -47.8919 },
+  },
+  {
+    start: { lat: -15.7975, lng: -47.8919 },
+    end: { lat: 38.7223, lng: -9.1393 },
+  },
+  {
+    start: { lat: 51.5074, lng: -0.1278 },
+    end: { lat: 28.6139, lng: 77.209 },
+  },
+  {
+    start: { lat: 28.6139, lng: 77.209 },
+    end: { lat: 43.1332, lng: 131.9113 },
+  },
+  {
+    start: { lat: 28.6139, lng: 77.209 },
+    end: { lat: -1.2921, lng: 36.8219 },
+  },
+];
+
+const globeMarkers: GlobeMarker[] = [
+  {
+    lat: 40.7128,
+    lng: -74.006,
+    src: "https://assets.aceternity.com/avatars/1.webp",
+    label: "New York",
+  },
+  {
+    lat: 51.5074,
+    lng: -0.1278,
+    src: "https://assets.aceternity.com/avatars/2.webp",
+    label: "London",
+  },
+  {
+    lat: 35.6762,
+    lng: 139.6503,
+    src: "https://assets.aceternity.com/avatars/3.webp",
+    label: "Tokyo",
+  },
+  {
+    lat: -33.8688,
+    lng: 151.2093,
+    src: "https://assets.aceternity.com/avatars/4.webp",
+    label: "Sydney",
+  },
+  {
+    lat: 48.8566,
+    lng: 2.3522,
+    src: "https://assets.aceternity.com/avatars/5.webp",
+    label: "Paris",
+  },
+  {
+    lat: 28.6139,
+    lng: 77.209,
+    src: "https://assets.aceternity.com/avatars/6.webp",
+    label: "New Delhi",
+  },
+  {
+    lat: 55.7558,
+    lng: 37.6173,
+    src: "https://assets.aceternity.com/avatars/7.webp",
+    label: "Moscow",
+  },
+  {
+    lat: -22.9068,
+    lng: -43.1729,
+    src: "https://assets.aceternity.com/avatars/8.webp",
+    label: "Rio de Janeiro",
+  },
+  {
+    lat: 31.2304,
+    lng: 121.4737,
+    src: "https://assets.aceternity.com/avatars/9.webp",
+    label: "Shanghai",
+  },
+  {
+    lat: 25.2048,
+    lng: 55.2708,
+    src: "https://assets.aceternity.com/avatars/10.webp",
+    label: "Dubai",
+  },
+  {
+    lat: -34.6037,
+    lng: -58.3816,
+    src: "https://assets.aceternity.com/avatars/11.webp",
+    label: "Buenos Aires",
+  },
+  {
+    lat: 1.3521,
+    lng: 103.8198,
+    src: "https://assets.aceternity.com/avatars/12.webp",
+    label: "Singapore",
+  },
+  {
+    lat: 37.5665,
+    lng: 126.978,
+    src: "https://assets.aceternity.com/avatars/13.webp",
+    label: "Seoul",
+  },
 ];
 
 export function WorldBrainSignal({ onRequestAccess }: WorldBrainSignalProps) {
@@ -58,7 +166,16 @@ export function WorldBrainSignal({ onRequestAccess }: WorldBrainSignalProps) {
             viewport={{ once: true }}
             whileInView={{ opacity: 1, x: 0 }}
           >
-            <Globe3DDemo />
+            <Globe3D
+              className="h-[320px] md:h-[420px]"
+              config={{
+                atmosphereColor: "#4da6ff",
+                atmosphereIntensity: 20,
+                bumpScale: 5,
+                autoRotateSpeed: 0.3,
+              }}
+              markers={globeMarkers}
+            />
           </motion.div>
 
           <motion.div
@@ -68,7 +185,7 @@ export function WorldBrainSignal({ onRequestAccess }: WorldBrainSignalProps) {
             viewport={{ once: true }}
             whileInView={{ opacity: 1, x: 0 }}
           >
-            <WorldMapDemo />
+            <WorldMap dots={worldMapDots} />
           </motion.div>
         </div>
 

@@ -1,13 +1,17 @@
 "use client";
-import React from "react";
-import { motion } from "motion/react";
 import dynamic from "next/dynamic";
+
+import { cn } from "@/lib/utils";
 
 const World = dynamic(() => import("../ui/globe").then((m) => m.World), {
   ssr: false,
 });
 
-export default function GlobeDemo() {
+interface Globe3DProps {
+  className?: string;
+}
+
+export default function GlobeDemo({ className }: Globe3DProps) {
   const globeConfig = {
     pointSize: 4,
     globeColor: "#062056",
@@ -395,33 +399,9 @@ export default function GlobeDemo() {
   ];
 
   return (
-    <div className="relative w-full py-6">
-      <div className="mx-auto w-full max-w-5xl overflow-hidden rounded-3xl border border-gold/20 bg-black/25 px-4 pt-6 h-[24rem] sm:h-[28rem] md:h-[34rem]">
-        <motion.div
-          initial={{
-            opacity: 0,
-            y: 20,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-          transition={{
-            duration: 1,
-          }}
-        >
-          <h2 className="text-center text-xl md:text-4xl font-bold text-ivory">
-            We sell soap worldwide
-          </h2>
-          <p className="text-center text-base md:text-lg font-normal text-muted-foreground max-w-md mt-2 mx-auto">
-            This globe is interactive and customizable. Have fun with it, and
-            don&apos;t forget to share it. :)
-          </p>
-        </motion.div>
-        <div className="absolute w-full bottom-0 inset-x-0 h-40 bg-gradient-to-b pointer-events-none select-none from-transparent to-black/90 z-40" />
-        <div className="absolute w-full -bottom-12 h-[21rem] sm:h-[25rem] md:h-[36rem] z-10">
-          <World data={sampleArcs} globeConfig={globeConfig} />
-        </div>
+    <div className={cn("w-full py-2", className)}>
+      <div className="mx-auto max-w-[430px]">
+        <World data={sampleArcs} globeConfig={globeConfig} />
       </div>
     </div>
   );
