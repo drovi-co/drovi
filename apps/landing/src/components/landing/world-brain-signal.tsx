@@ -2,8 +2,8 @@
 
 import { motion } from "framer-motion";
 
-import { Globe3DDemo } from "@/components/landing/globe-3d-demo";
-import { WorldMapDemo } from "@/components/landing/world-map-demo";
+import Globe3DDemo from "@/components/3d-globe-demo";
+import WorldMapDemo from "@/components/world-map-demo";
 
 interface WorldBrainSignalProps {
   onRequestAccess?: () => void;

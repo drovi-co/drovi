@@ -395,8 +395,8 @@ export default function GlobeDemo() {
   ];
 
   return (
-    <div className="flex flex-row items-center justify-center py-20 h-screen md:h-auto dark:bg-black bg-white relative w-full">
-      <div className="max-w-7xl mx-auto w-full relative overflow-hidden h-full md:h-[40rem] px-4">
+    <div className="relative w-full py-6">
+      <div className="mx-auto w-full max-w-5xl overflow-hidden rounded-3xl border border-gold/20 bg-black/25 px-4 pt-6 h-[24rem] sm:h-[28rem] md:h-[34rem]">
         <motion.div
           initial={{
             opacity: 0,
@@ -409,18 +409,17 @@ export default function GlobeDemo() {
           transition={{
             duration: 1,
           }}
-          className="div"
         >
-          <h2 className="text-center text-xl md:text-4xl font-bold text-black dark:text-white">
+          <h2 className="text-center text-xl md:text-4xl font-bold text-ivory">
             We sell soap worldwide
           </h2>
-          <p className="text-center text-base md:text-lg font-normal text-neutral-700 dark:text-neutral-200 max-w-md mt-2 mx-auto">
+          <p className="text-center text-base md:text-lg font-normal text-muted-foreground max-w-md mt-2 mx-auto">
             This globe is interactive and customizable. Have fun with it, and
             don&apos;t forget to share it. :)
           </p>
         </motion.div>
-        <div className="absolute w-full bottom-0 inset-x-0 h-40 bg-gradient-to-b pointer-events-none select-none from-transparent dark:to-black to-white z-40" />
-        <div className="absolute w-full -bottom-20 h-72 md:h-full z-10">
+        <div className="absolute w-full bottom-0 inset-x-0 h-40 bg-gradient-to-b pointer-events-none select-none from-transparent to-black/90 z-40" />
+        <div className="absolute w-full -bottom-12 h-[21rem] sm:h-[25rem] md:h-[36rem] z-10">
           <World data={sampleArcs} globeConfig={globeConfig} />
         </div>
       </div>

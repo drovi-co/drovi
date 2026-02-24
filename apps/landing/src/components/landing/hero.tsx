@@ -39,21 +39,14 @@ export function Hero({ onRequestAccess, onWatchDemo }: HeroProps) {
             <h1 className="font-normal text-[44px] text-white leading-[0.96] tracking-[-2.2px] md:text-[68px] md:tracking-[-3.2px] lg:text-[84px]">
               The Live Institutional Ledger
             </h1>
-            <p className="mx-auto max-w-3xl text-[15px] text-white/82 leading-relaxed md:text-[19px]">
-              Drovi is a live institutional ledger. It watches the world and
-              your organization at the same time, continuously.
-            </p>
-            <p className="mx-auto max-w-3xl text-[15px] text-white/72 leading-relaxed md:text-[18px]">
-              When reality shifts, Drovi calculates what it breaks inside your
-              company, updates what is believed to be true, and shows the
-              evidence.
-            </p>
-            <p className="mx-auto max-w-3xl text-[15px] text-white/72 leading-relaxed md:text-[18px]">
-              It is not a news feed. It hunts exposure before it turns into
-              loss, liability, or surprise and proposes the next move.
-            </p>
-            <p className="mx-auto max-w-2xl text-[15px] text-white/72 leading-relaxed md:text-[18px]">
-              Humans use it to stay ahead. Agents use it to act with context.
+            <p className="mx-auto max-w-3xl whitespace-pre-line text-[15px] text-white/78 leading-relaxed md:text-[18px]">
+              {`Drovi is a live institutional ledger. It watches the world and your organization at the same time, continuously.
+
+When reality shifts, Drovi calculates what it breaks inside your company, updates what is believed to be true, and shows the evidence.
+
+It is not a news feed. It hunts exposure before it turns into loss, liability, or surprise and proposes the next move.
+
+Humans use it to stay ahead. Agents use it to act with context.`}
             </p>
           </div>
 

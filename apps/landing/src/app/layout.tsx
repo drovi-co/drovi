@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 import { Toaster } from "sonner";
 
@@ -56,19 +57,27 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html className={inter.variable} lang="en">
       <body className="min-h-screen bg-background text-foreground antialiased">
-        <QueryProvider>
-          {children}
-          <Toaster
-            position="bottom-right"
-            toastOptions={{
-              style: {
-                background: "var(--card)",
-                color: "var(--card-foreground)",
-                border: "1px solid var(--border)",
-              },
-            }}
-          />
-        </QueryProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          disableTransitionOnChange
+          enableSystem={false}
+          forcedTheme="dark"
+        >
+          <QueryProvider>
+            {children}
+            <Toaster
+              position="bottom-right"
+              toastOptions={{
+                style: {
+                  background: "var(--card)",
+                  color: "var(--card-foreground)",
+                  border: "1px solid var(--border)",
+                },
+              }}
+            />
+          </QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -3,11 +3,11 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
 
+import Globe3DDemo from "@/components/3d-globe-demo";
 import { DemoModal } from "@/components/landing/demo-modal";
 import { Footer } from "@/components/landing/footer";
-import { Globe3DDemo } from "@/components/landing/globe-3d-demo";
 import { Navigation } from "@/components/landing/navigation";
-import { WorldMapDemo } from "@/components/landing/world-map-demo";
+import WorldMapDemo from "@/components/world-map-demo";
 import WorldMap from "@/components/ui/world-map";
 import { WaitlistDialog } from "@/components/waitlist/waitlist-dialog";
 
@@ -112,10 +112,9 @@ export default function WorldBrainPage() {
         <section className="relative min-h-screen w-full overflow-hidden rounded-[20px]">
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute inset-0 overflow-hidden">
-              <WorldMap
-                className="absolute top-1/2 left-1/2 h-[170%] w-[240%] max-w-none -translate-x-1/2 -translate-y-1/2 rounded-none border-0 bg-transparent p-0 shadow-none md:h-[155%] md:w-[180%] lg:h-[145%] lg:w-[165%]"
-                dots={heroMapDots}
-              />
+              <div className="absolute top-1/2 left-1/2 w-[250%] -translate-x-1/2 -translate-y-1/2 scale-[2.05] md:w-[190%] md:scale-[1.75] lg:w-[165%] lg:scale-[1.45]">
+                <WorldMap dots={heroMapDots} />
+              </div>
             </div>
             <div className="absolute inset-0 bg-black/50" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(183,99,7,0.28),transparent_34%),radial-gradient(circle_at_80%_0%,rgba(56,189,248,0.2),transparent_32%)]" />
