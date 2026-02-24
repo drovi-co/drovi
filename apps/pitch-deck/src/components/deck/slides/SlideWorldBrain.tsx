@@ -3,15 +3,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import Globe3D from "../visuals/Globe3D";
 import SlideLayout from "../SlideLayout";
 
-const markers = [
-  { lat: 40.7128, lng: -74.006, label: "New York" },
-  { lat: 51.5074, lng: -0.1278, label: "London" },
-  { lat: 35.6762, lng: 139.6503, label: "Tokyo" },
-  { lat: -33.8688, lng: 151.2093, label: "Sydney" },
-  { lat: 1.3521, lng: 103.8198, label: "Singapore" },
-  { lat: 25.2048, lng: 55.2708, label: "Dubai" },
-];
-
 const highlights = [
   "Evidence-backed beliefs",
   "Causal pressure mapping",
@@ -108,7 +99,7 @@ const SlideWorldBrain = () => {
             }
             variants={itemVariants}
           >
-            <Globe3D className="mx-auto max-w-[430px]" markers={markers} />
+            <Globe3D />
           </motion.div>
         </div>
       </motion.div>

@@ -18,32 +18,31 @@ interface Plan {
 const plans: Plan[] = [
   {
     name: "Institutional",
-    description: "Memory, custody, and continuity for regulated teams",
+    description: "For regulated and high-trust teams.",
     price: "Annual license",
     popular: true,
-    cta: "Request private briefing",
+    cta: "Request Private Briefing",
     features: [
-      "Evidence-anchored record system",
-      "Bi-temporal commitments and decisions",
-      "Operational continuity briefs",
-      "Integrity and custody exports",
-      "Support queue with SLA routing",
-      "Structured onboarding runbook",
+      "Evidence-backed belief system",
+      "Bi-temporal ledger",
+      "Exposure modeling",
+      "Governed intervention engine",
+      "Structured onboarding",
     ],
   },
   {
     name: "Enterprise",
-    description: "Dedicated deployment and fiduciary-grade controls",
+    description: "Dedicated deployment. Fiduciary-grade controls.",
     price: "Request commercial terms",
-    cta: "Request private briefing",
+    cta: "Request Commercial Terms",
     features: [
       "Everything in Institutional",
-      "Tenant security policy controls",
-      "SSO/SAML integration",
-      "IP allowlists and break-glass workflow",
-      "Data residency and dedicated infrastructure",
-      "Security review and go-live gate",
-      "White-glove operations support",
+      "Tenant isolation and policy controls",
+      "SSO / SAML",
+      "IP allowlisting",
+      "Data residency",
+      "Dedicated infrastructure",
+      "Security review",
     ],
   },
 ];
@@ -58,120 +57,76 @@ export function Pricing({ onRequestAccess }: PricingProps) {
 
   return (
     <section
-      className="relative overflow-hidden px-6 py-20 md:py-32"
+      className="relative overflow-hidden px-6 py-20 md:py-28"
       id="pricing"
     >
-      {/* Background */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-0 left-1/2 h-[600px] w-[800px] -translate-x-1/2 rounded-full bg-gradient-to-b from-amber-500/8 via-transparent to-transparent blur-3xl" />
+        <div className="absolute top-0 left-1/2 h-[600px] w-[860px] -translate-x-1/2 rounded-full bg-gradient-to-b from-amber-500/10 via-transparent to-transparent blur-3xl" />
       </div>
 
       <div className="relative mx-auto max-w-6xl">
-        {/* Section header */}
         <motion.div
-          className="mb-12 text-center md:mb-20"
-          initial={{ opacity: 0, y: 30 }}
+          className="mb-12 text-center"
+          initial={{ opacity: 0, y: 20 }}
           transition={{ duration: 0.6 }}
           viewport={{ once: true }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-4 py-1.5 md:mb-6 md:gap-3 md:px-5 md:py-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 md:h-2 md:w-2" />
-            <span className="font-medium text-amber-400 text-xs tracking-wide md:text-sm">
-              PRICING
-            </span>
-          </div>
-          <h2 className="mb-4 font-normal text-[32px] leading-[1.1] tracking-[-1.5px] md:mb-6 md:text-[44px] md:tracking-[-2.2px] lg:text-[56px] lg:tracking-[-2.8px]">
-            <span className="text-foreground">Infrastructure pricing</span>
-            <br />
-            <span className="text-foreground/40">that scales with you</span>
-          </h2>
-          <p className="mx-auto max-w-xl text-[15px] text-foreground/60 leading-relaxed md:text-[17px]">
-            Annual institutional licensing with private onboarding and
-            deployment controls.
+          <p className="text-amber-400/85 text-xs uppercase tracking-[0.2em] md:text-sm">
+            Pricing
           </p>
         </motion.div>
 
-        {/* Pricing cards */}
-        <div className="mx-auto grid max-w-4xl gap-4 md:gap-6 lg:grid-cols-2">
+        <div className="mx-auto grid max-w-5xl gap-4 md:gap-6 lg:grid-cols-2">
           {plans.map((plan, index) => (
             <motion.div
               className="group"
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 24 }}
               key={plan.name}
               transition={{ duration: 0.5, delay: index * 0.1 }}
               viewport={{ once: true }}
               whileInView={{ opacity: 1, y: 0 }}
             >
               <div
-                className={`relative h-full overflow-hidden rounded-2xl p-5 transition-all duration-300 md:rounded-3xl md:p-8 ${
+                className={`relative h-full overflow-hidden rounded-3xl p-6 md:p-8 ${
                   plan.popular
-                    ? "bg-gradient-to-b from-amber-500/10 to-amber-500/[0.02]"
-                    : "bg-gradient-to-b from-white/[0.04] to-transparent hover:from-white/[0.06]"
+                    ? "bg-gradient-to-b from-amber-500/12 to-amber-500/[0.02]"
+                    : "bg-gradient-to-b from-white/[0.04] to-transparent"
                 }`}
               >
-                {/* Popular badge */}
-                {plan.popular && (
-                  <div className="absolute top-4 right-4 md:top-6 md:right-6">
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 px-2.5 py-0.5 md:gap-2 md:px-3 md:py-1">
-                      <span className="h-1 w-1 rounded-full bg-amber-500 md:h-1.5 md:w-1.5" />
-                      <span className="font-medium text-[10px] text-amber-400 md:text-xs">
-                        Most Popular
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Subtle border */}
                 <div
-                  className={`pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset md:rounded-3xl ${
-                    plan.popular ? "ring-amber-500/20" : "ring-white/[0.05]"
+                  className={`pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ${
+                    plan.popular ? "ring-amber-500/26" : "ring-white/[0.08]"
                   }`}
                 />
 
-                {/* Content */}
                 <div className="relative">
-                  {/* Plan name & description */}
-                  <div className="mb-5 md:mb-8">
-                    <h3 className="mb-1.5 font-medium text-[18px] text-foreground md:mb-2 md:text-[22px]">
-                      {plan.name}
-                    </h3>
-                    <p className="text-[13px] text-foreground/50 md:text-[14px]">
-                      {plan.description}
-                    </p>
-                  </div>
+                  <h3 className="text-[30px] tracking-[-1px] md:text-[36px]">{plan.name}</h3>
+                  <p className="mt-2 text-[14px] text-foreground/56 md:text-[15px]">
+                    {plan.description}
+                  </p>
 
-                  {/* Price */}
-                  <div className="mb-5 md:mb-8">
-                    <span className="font-normal text-[36px] text-foreground leading-none tracking-[-1.5px] md:text-[48px] md:tracking-[-2px]">
-                      {plan.price}
-                    </span>
-                    {!plan.price.toLowerCase().includes("request") && (
-                      <span className="ml-1 text-[14px] text-foreground/40 md:text-[16px]">
-                        &nbsp;
-                      </span>
-                    )}
-                  </div>
+                  <p className="mt-4 font-normal text-[34px] leading-none tracking-[-1.3px] md:text-[44px]">
+                    {plan.price}
+                  </p>
 
-                  {/* Features */}
-                  <ul className="mb-6 space-y-2.5 md:mb-8 md:space-y-3">
+                  <ul className="mt-6 space-y-2.5">
                     {plan.features.map((feature) => (
                       <li
-                        className="flex items-start gap-2.5 text-[13px] text-foreground/60 md:gap-3 md:text-[14px]"
+                        className="flex items-start gap-2.5 text-[14px] text-foreground/68 md:text-[15px]"
                         key={feature}
                       >
-                        <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500/10 md:h-5 md:w-5">
-                          <Check className="h-2.5 w-2.5 text-amber-500 md:h-3 md:w-3" />
-                        </div>
+                        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/14 text-amber-300">
+                          <Check className="h-3 w-3" />
+                        </span>
                         {feature}
                       </li>
                     ))}
                   </ul>
 
-                  {/* CTA Button */}
                   {isAuthenticated ? (
                     <a
-                      className={`flex h-11 w-full items-center justify-center rounded-full font-medium text-[14px] transition-all md:h-12 md:text-[15px] ${
+                      className={`mt-7 flex h-11 w-full items-center justify-center rounded-full font-medium text-[14px] transition md:h-12 md:text-[15px] ${
                         plan.popular
                           ? "bg-white text-black hover:bg-white/90"
                           : "bg-white/10 text-white hover:bg-white/15"
@@ -182,7 +137,7 @@ export function Pricing({ onRequestAccess }: PricingProps) {
                     </a>
                   ) : (
                     <button
-                      className={`flex h-11 w-full items-center justify-center rounded-full font-medium text-[14px] transition-all md:h-12 md:text-[15px] ${
+                      className={`mt-7 flex h-11 w-full items-center justify-center rounded-full font-medium text-[14px] transition md:h-12 md:text-[15px] ${
                         plan.popular
                           ? "bg-white text-black hover:bg-white/90"
                           : "bg-white/10 text-white hover:bg-white/15"

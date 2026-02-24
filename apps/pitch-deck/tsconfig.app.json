@@ -24,7 +24,9 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "motion/react": ["./src/compat/motion-react"],
+      "next/dynamic": ["./src/compat/next-dynamic"]
     }
   },
   "include": ["src"]

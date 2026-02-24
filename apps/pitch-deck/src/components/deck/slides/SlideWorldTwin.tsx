@@ -81,41 +81,7 @@ const SlideWorldTwin = () => {
           }
           variants={itemVariants}
         >
-          <WorldMap
-            className="mx-auto max-w-5xl"
-            connections={[
-              {
-                start: { lat: 64.2008, lng: -149.4937 },
-                end: { lat: 34.0522, lng: -118.2437 },
-                color: "#facc15",
-              },
-              {
-                start: { lat: 34.0522, lng: -118.2437 },
-                end: { lat: 51.5074, lng: -0.1278 },
-                color: "#eab308",
-              },
-              {
-                start: { lat: 51.5074, lng: -0.1278 },
-                end: { lat: 28.6139, lng: 77.209 },
-                color: "#f59e0b",
-              },
-              {
-                start: { lat: 28.6139, lng: 77.209 },
-                end: { lat: 1.3521, lng: 103.8198 },
-                color: "#facc15",
-              },
-              {
-                start: { lat: 1.3521, lng: 103.8198 },
-                end: { lat: -15.7975, lng: -47.8919 },
-                color: "#fde047",
-              },
-              {
-                start: { lat: 37.5665, lng: 126.978 },
-                end: { lat: 48.8566, lng: 2.3522 },
-                color: "#ca8a04",
-              },
-            ]}
-          />
+          <WorldMap />
         </motion.div>
 
         <div className="mt-6 grid gap-3 md:grid-cols-3">

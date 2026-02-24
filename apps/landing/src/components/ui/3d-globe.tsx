@@ -16,6 +16,7 @@ interface GlobeConfig {
   atmosphereColor?: string;
   atmosphereIntensity?: number;
   autoRotateSpeed?: number;
+  bumpScale?: number;
 }
 
 interface Globe3DProps {
@@ -69,6 +70,11 @@ export function Globe3D({
   const rotateSpeed = config?.autoRotateSpeed ?? 0.28;
   const atmosphereColor = config?.atmosphereColor ?? "#4fd1c5";
   const atmosphereIntensity = config?.atmosphereIntensity ?? 0.55;
+  const bumpScale = config?.bumpScale ?? 1;
+  const normalizedAtmosphereIntensity =
+    atmosphereIntensity > 1
+      ? Math.min(1, atmosphereIntensity / 20)
+      : atmosphereIntensity;
 
   useEffect(() => {
     let rafId = 0;
@@ -94,7 +100,7 @@ export function Globe3D({
         className="absolute inset-[-8%] rounded-full blur-3xl"
         style={{
           background: `radial-gradient(circle, ${atmosphereColor} 0%, transparent 68%)`,
-          opacity: atmosphereIntensity,
+          opacity: normalizedAtmosphereIntensity,
         }}
       />
 
@@ -102,6 +108,7 @@ export function Globe3D({
         <motion.div
           animate={{ rotate: -rotation }}
           className="absolute inset-[-35%]"
+          style={{ scale: 1 + bumpScale * 0.002 }}
           transition={{ duration: 0, ease: "linear" }}
         >
           <div className="absolute inset-[20%] rounded-full border border-cyan-200/18" />

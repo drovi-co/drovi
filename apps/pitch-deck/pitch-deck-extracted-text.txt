@@ -1,0 +1,211 @@
+Drovi Pitch Deck Extracted Text
+Generated: 2026-02-24T14:22:17.220Z
+
+## apps/pitch-deck/src/components/deck/Navigation.tsx
+- bg-gold scale-110
+- bg-transparent hover:bg-gold/30
+- scale-110 bg-gold
+- button, a, input, textarea, select, [role='button'], [data-prevent-swipe='true']
+- [data-slide-scroll="true"]
+
+## apps/pitch-deck/src/components/deck/SlideLayout.tsx
+- items-start md:items-center
+- radial-gradient(ellipse at center, hsl(150 25% 13%) 0%, hsl(150 30% 6%) 70%, hsl(150 35% 3%) 100%)
+- radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.4) 100%)
+
+## apps/pitch-deck/src/components/deck/slides/SlideAICore.tsx
+- Fully Cloud
+- AI Infrastructure
+- AI at the Core
+- Deep infrastructure. Not a wrapper.
+- Multi-Stage Pipeline
+- Deployment Options
+
+## apps/pitch-deck/src/components/deck/slides/SlideAgents.tsx
+- Agent Control Plane
+- Why This Matters for
+- AI Agents
+- Without a Ledger
+- Agents hallucinate context.
+- Agents violate prior commitments.
+- Agents create institutional risk.
+- With Drovi
+- "What was decided?"
+- "What is still valid?"
+- "What is the latest binding commitment?"
+- "Is this contradictory?"
+- Drovi becomes the
+- control plane
+- beneath agent execution.
+
+## apps/pitch-deck/src/components/deck/slides/SlideBusinessModel.tsx
+- Business Model
+- High ACV institutional contracts
+- Vertical packages (Legal, Capital, Construction)
+- Agent Runtime licensing
+- On-prem deployments
+- Usage-based intelligence APIs
+- Target ACV
+- $80K – $150K
+- per firm per year
+
+## apps/pitch-deck/src/components/deck/slides/SlideDroviLedger.tsx
+- Linked to source evidence
+- The Solution
+- Drovi = The
+- Institutional Ledger
+- Not storage.
+- Structured institutional memory.
+
+## apps/pitch-deck/src/components/deck/slides/SlideFuture.tsx
+- The Future
+- In 5 years, institutions will not ask:
+- "Where was that email?"
+- They will ask:
+- "What does the ledger say?"
+- The institutional ledger and world brain beneath
+- autonomous capital
+
+## apps/pitch-deck/src/components/deck/slides/SlideMarkets.tsx
+- Legal Firms
+- Advice is obligation
+- Accounting Firms
+- Precision is mandate
+- Family Offices
+- Discretion is currency
+- Hedge Funds
+- Context is alpha
+- Private Equity
+- Commitments are capital
+- Promises are contracts
+- Real Estate
+- Records are proof
+- Initial Markets
+- Words = Obligations
+- Forgetting is liability. Proof is currency.
+
+## apps/pitch-deck/src/components/deck/slides/SlideProblem.tsx
+- Email threads
+- Slack conversations
+- Meeting transcripts
+- CRM notes
+- Analyst models
+- The Problem
+- Institutions operate on
+- But these promises are not recorded in one place. They live in:
+- Institutions run on fragmented recollection.
+
+## apps/pitch-deck/src/components/deck/slides/SlideRaise.tsx
+- Harden ledger core
+- Scale world-brain ingest and causality infrastructure
+- Expand vertical intelligence packs
+- Ship AgentOS control plane
+- Hire senior infra engineer
+- Hire founding designer
+- Close first 5 institutional deployments
+- The Raise
+- $1.5M
+- Capital has ledgers. Ownership has ledgers. Risk has ledgers.
+- Drovi is the ledger for decisions.
+
+## apps/pitch-deck/src/components/deck/slides/SlideTeam.tsx
+- The Team
+- Jeremy Scatigna
+- Founder & CEO
+- Infrastructure and AI engineer. Built distributed systems at scale.
+- Tristan Frullani
+- Operator. Built and scaled operationally heavy businesses.
+- Disciplined. Structured. Long-term.
+
+## apps/pitch-deck/src/components/deck/slides/SlideTechArch.tsx
+- Unified Event Model
+- Every email, message, meeting, document becomes an immutable event with content hash, provenance, and timestamp.
+- Bi-Temporal Truth Engine
+- Valid-time and system-time tracking. Know what was true in reality and when it entered the system.
+- Evidence-First Extraction
+- No Evidence → No Persist. Every decision references specific quoted spans with confidence reasoning.
+- Contradiction & Supersession
+- Detects contradictions across time, links superseded commitments, maintains decision trails.
+- Four Layers of
+
+## apps/pitch-deck/src/components/deck/slides/SlideTitle.tsx
+- The Institutional Ledger for Modern Firms
+
+## apps/pitch-deck/src/components/deck/slides/SlideTraction.tsx
+- Multi-source ingestion live
+- Production extraction pipeline
+- Bi-temporal ledger implemented
+- Enterprise pilots in legal & accounting
+- Agent runtime in development
+- Fine-tuned open-source AI models deployed
+- Kafka + Temporal event fabric operational
+- Evidence store with content-hash immutability
+- Infrastructure Already Running
+- This is not a slideware company.
+
+## apps/pitch-deck/src/components/deck/slides/SlideWhatBreaks.tsx
+- Decisions are reinterpreted.
+- Commitments are forgotten.
+- Advice contradicts itself.
+- Agents act on outdated context.
+- Risk accumulates silently.
+- Liability increases.
+- What Breaks
+- When there is no authoritative record:
+- AI without a ledger is
+- Humans without a ledger are
+
+## apps/pitch-deck/src/components/deck/slides/SlideWhatIsLedger.tsx
+- Entries are explicit.
+- Every entry has provenance.
+- Changes are recorded over time.
+- Nothing is silently overwritten.
+- It can be audited.
+- What Is a Ledger?
+- The authoritative, permanent record of economic reality.
+- Accounting has ledgers. Capital has ledgers. Ownership has ledgers.
+- Institutional decisions do not.
+
+## apps/pitch-deck/src/components/deck/slides/SlideWhyWeWin.tsx
+- We treat memory as infrastructure.
+- We enforce proof before persistence.
+- We built bi-temporal institutional truth.
+- We integrate across systems, not replace them.
+- We support on-premise deployment for private capital.
+- Competitive Advantage
+- Why We Win
+- Most AI tools accelerate output.
+- We institutionalize truth.
+
+## apps/pitch-deck/src/components/deck/slides/SlideWorldBrain.tsx
+- New York
+- Evidence-backed beliefs
+- Causal pressure mapping
+- Governed interventions
+- Temporal accountability
+- World Brain Expansion
+- From memory infrastructure to
+- institutional cognition
+- World Brain continuously fuses global and internal signals into a live belief system that can explain impact paths and recommend governed action.
+
+## apps/pitch-deck/src/components/deck/slides/SlideWorldSurfaces.tsx
+- Belief trails, evidence bundles, and contradiction timelines.
+- State deltas only: no noise, only consequential transitions.
+- Counterfactual Lab
+- Intervention A/B/C utility comparisons before execution.
+- Obligation Sentinel
+- Pre-breach detection across law, policy, and contracts.
+- Ask v2
+- Truth payload first, uncertainty second, recommendation third.
+- Event-native architecture across ingest -> belief -> intervention topics
+- Multi-memory design for causal, normative, procedural, and strategic recall
+- Policy gating and rollback requirements for all side-effecting actions
+- Productized World Brain
+- The control-room surfaces + infrastructure moat.
+
+## apps/pitch-deck/src/components/deck/slides/SlideWorldTwin.tsx
+- Target reduction in unseen high-severity external impact events
+- Faster root-cause reconstruction during executive incidents
+- Evidence coverage goal on high-stakes belief transitions
+- Institutional World Twin
+- World pressure map: external change to internal consequence.

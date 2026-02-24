@@ -9,9 +9,9 @@ import { cn, getAppUrl } from "@/lib/utils";
 
 const navLinks = [
   { label: "World Brain", href: "/world-brain" },
-  { label: "How it works", href: "#how-it-works" },
-  { label: "Features", href: "#features" },
-  { label: "Pricing", href: "#pricing" },
+  { label: "How it Works", href: "/#how-it-works" },
+  { label: "Security", href: "/#security" },
+  { label: "Pricing", href: "/#pricing" },
 ];
 
 interface NavigationProps {
@@ -72,7 +72,7 @@ export function Navigation({ onRequestAccess }: NavigationProps) {
             onClick={onRequestAccess}
             type="button"
           >
-            Request private briefing
+            Request Private Briefing
           </button>
         </div>
       </div>
@@ -143,7 +143,7 @@ export function Navigation({ onRequestAccess }: NavigationProps) {
               }}
               type="button"
             >
-              Request private briefing
+              Request Private Briefing
             </button>
           </div>
         </div>

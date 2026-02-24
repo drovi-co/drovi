@@ -14,31 +14,31 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Drovi - The Memory Layer for Work",
+  title: "Drovi - The Live Institutional Ledger",
   description:
-    "Drovi remembers what your company decided, promised, and still owes — everywhere it was said. A living system of record for decisions, commitments, and relationships across internal teams and customer conversations.",
+    "Drovi is a live institutional ledger. It watches the world and your organization continuously, computes exposure, updates belief states with evidence, and proposes governed interventions.",
   keywords: [
-    "work memory",
-    "organizational memory",
-    "decision tracking",
-    "commitment tracking",
-    "productivity",
-    "knowledge management",
+    "institutional ledger",
+    "world model",
+    "exposure monitoring",
+    "belief graph",
+    "governed intervention",
+    "organizational cognition",
   ],
   authors: [{ name: "Drovi" }],
   openGraph: {
-    title: "Drovi - The Memory Layer for Work",
+    title: "Drovi - The Live Institutional Ledger",
     description:
-      "Drovi remembers what your company decided, promised, and still owes — across internal teams and customer conversations.",
+      "A live institutional ledger for high-consequence teams. Evidence-backed beliefs, exposure maps, and governed interventions.",
     type: "website",
     locale: "en_US",
     siteName: "Drovi",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Drovi - The Memory Layer for Work",
+    title: "Drovi - The Live Institutional Ledger",
     description:
-      "Drovi remembers what your company decided, promised, and still owes — across internal teams and customer conversations.",
+      "Drovi computes exposure as reality shifts, updates what is true with evidence, and helps institutions act before loss, liability, or surprise.",
   },
   robots: {
     index: true,

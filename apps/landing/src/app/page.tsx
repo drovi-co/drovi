@@ -12,7 +12,6 @@ import { HowItWorks } from "@/components/landing/how-it-works";
 import { Navigation } from "@/components/landing/navigation";
 import { Pricing } from "@/components/landing/pricing";
 import { ProblemSolution } from "@/components/landing/problem-solution";
-import { Testimonial } from "@/components/landing/testimonial";
 import { WorldBrainCapabilities } from "@/components/landing/world-brain-capabilities";
 import { WorldBrainSignal } from "@/components/landing/world-brain-signal";
 import { WaitlistDialog } from "@/components/waitlist/waitlist-dialog";
@@ -41,40 +40,26 @@ export default function LandingPage() {
         />
       </div>
 
-      {/* Problem/Solution Section */}
       <ProblemSolution />
 
-      {/* New: World Brain Signal Section */}
-      <WorldBrainSignal onRequestAccess={handleRequestAccess} />
-
-      {/* How It Works */}
       <HowItWorks />
 
-      {/* New: World Brain Capabilities */}
+      <WorldBrainSignal onRequestAccess={handleRequestAccess} />
+
       <WorldBrainCapabilities />
 
-      {/* 8 AI Agents */}
       <Agents />
 
-      {/* Features */}
       <Features />
 
-      {/* Testimonial */}
-      <Testimonial />
-
-      {/* Pricing */}
       <Pricing onRequestAccess={handleRequestAccess} />
 
-      {/* Final CTA */}
       <CTA onRequestAccess={handleRequestAccess} />
 
-      {/* Footer */}
       <Footer />
 
-      {/* Waitlist Dialog */}
       <WaitlistDialog onOpenChange={setWaitlistOpen} open={waitlistOpen} />
 
-      {/* Demo Modal */}
       <DemoModal
         onOpenChange={setDemoOpen}
         onRequestAccess={handleRequestAccess}

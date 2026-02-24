@@ -2,152 +2,96 @@
 
 import { motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
-import {
-  ArrowRightLeft,
-  Blocks,
-  Database,
-  FileInput,
-  GitMerge,
-  Share2,
-} from "lucide-react";
+import { GitBranch, Radar, RefreshCcw, ScanLine, ShieldCheck } from "lucide-react";
 
 interface Step {
   icon: LucideIcon;
-  number: string;
   title: string;
   description: string;
 }
 
 const steps: Step[] = [
   {
-    icon: FileInput,
-    number: "01",
+    icon: ScanLine,
     title: "Ingest",
-    description:
-      "Connect email, chat, docs, meetings, and CRM. Drovi ingests everything — historical and real-time — into a unified data layer.",
+    description: "Ingests internal systems and external signals.",
   },
   {
-    icon: ArrowRightLeft,
-    number: "02",
+    icon: RefreshCcw,
     title: "Normalize",
-    description:
-      "Messages, threads, files, and events are standardized into a common schema. Every source speaks the same language.",
+    description: "Normalizes them into structured observations.",
   },
   {
-    icon: Blocks,
-    number: "03",
-    title: "Extract",
-    description:
-      "AI extracts structured intelligence: decisions, commitments, ownership, deadlines, risks, and relationships.",
+    icon: ShieldCheck,
+    title: "Update Beliefs",
+    description: "Updates institutional beliefs with explicit confidence.",
   },
   {
-    icon: GitMerge,
-    number: "04",
-    title: "Resolve",
-    description:
-      "Entities are unified across sources. The same person, project, or commitment is recognized everywhere it appears.",
+    icon: GitBranch,
+    title: "Compute Impact",
+    description: "Computes downstream impact across your exposure graph.",
   },
   {
-    icon: Database,
-    number: "05",
-    title: "Persist",
-    description:
-      "Memory is stored in a graph with full provenance. Every fact links back to its source, and history is preserved.",
-  },
-  {
-    icon: Share2,
-    number: "06",
-    title: "Expose",
-    description:
-      "Query via API, UI, or agent-ready interfaces. Humans and systems access the same truth.",
+    icon: Radar,
+    title: "Propose Intervention",
+    description: "Proposes governed interventions with rollback paths.",
   },
 ];
 
 export function HowItWorks() {
   return (
     <section
-      className="relative overflow-hidden px-6 py-20 md:py-32"
+      className="relative overflow-hidden px-6 py-20 md:py-28"
       id="how-it-works"
     >
-      {/* Background elements */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-0 right-0 h-[600px] w-[600px] rounded-full bg-gradient-to-bl from-amber-500/8 via-transparent to-transparent blur-3xl" />
-        <div className="absolute bottom-0 left-0 h-[500px] w-[500px] rounded-full bg-gradient-to-tr from-orange-500/5 via-transparent to-transparent blur-3xl" />
+        <div className="absolute top-0 right-0 h-[620px] w-[620px] rounded-full bg-gradient-to-bl from-amber-500/8 via-transparent to-transparent blur-3xl" />
       </div>
 
       <div className="relative mx-auto max-w-6xl">
-        {/* Section header */}
         <motion.div
-          className="mb-12 text-center md:mb-20"
-          initial={{ opacity: 0, y: 30 }}
-          transition={{ duration: 0.6 }}
+          className="mb-12 text-center md:mb-14"
+          initial={{ opacity: 0, y: 24 }}
+          transition={{ duration: 0.62 }}
           viewport={{ once: true }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-4 py-1.5 md:mb-6 md:gap-3 md:px-5 md:py-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 md:h-2 md:w-2" />
-            <span className="font-medium text-amber-400 text-xs tracking-wide md:text-sm">
-              HOW THE MEMORY LAYER WORKS
-            </span>
-          </div>
-          <h2 className="mb-6 font-normal text-[32px] leading-[1.1] tracking-[-1.5px] md:text-[44px] md:tracking-[-2.2px] lg:text-[56px] lg:tracking-[-2.8px]">
-            <span className="text-foreground">From raw data</span>
-            <br />
-            <span className="text-foreground/40">to queryable truth.</span>
+          <p className="text-amber-400/85 text-xs uppercase tracking-[0.2em] md:text-sm">
+            What Drovi Does
+          </p>
+          <h2 className="mt-4 font-normal text-[34px] leading-[1.06] tracking-[-1.5px] md:text-[54px] md:tracking-[-2.4px]">
+            A Single Ledger of Truth
           </h2>
+          <p className="mx-auto mt-4 max-w-3xl text-[15px] text-foreground/68 leading-relaxed md:text-[18px]">
+            Across your organization and the world.
+          </p>
         </motion.div>
 
-        {/* Steps */}
-        <div className="relative">
-          {/* Connecting line */}
-          <div className="absolute top-[60px] left-[60px] hidden h-[calc(100%-120px)] w-px bg-gradient-to-b from-amber-500/50 via-amber-500/20 to-transparent lg:block" />
-
-          <div className="space-y-12 md:space-y-16 lg:space-y-24">
-            {steps.map((step, index) => (
-              <motion.div
-                className="group relative"
-                initial={{ opacity: 0, y: 40 }}
-                key={step.title}
-                transition={{ duration: 0.6, delay: index * 0.15 }}
-                viewport={{ once: true }}
-                whileInView={{ opacity: 1, y: 0 }}
-              >
-                <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-16">
-                  {/* Number and Icon */}
-                  <div className="relative flex shrink-0 items-center gap-4 md:gap-6 lg:w-[120px] lg:flex-col lg:items-center lg:gap-4">
-                    {/* Glowing dot on the line */}
-                    <div className="absolute top-1/2 left-[60px] hidden h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.5)] lg:block" />
-
-                    {/* Icon container */}
-                    <div className="relative flex h-[80px] w-[80px] items-center justify-center md:h-[100px] md:w-[100px] lg:h-[120px] lg:w-[120px]">
-                      {/* Outer glow ring */}
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 blur-xl md:rounded-3xl" />
-                      {/* Main container */}
-                      <div className="relative flex h-full w-full items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500/10 to-transparent backdrop-blur-sm md:rounded-3xl">
-                        <step.icon className="h-8 w-8 text-amber-500 md:h-10 md:w-10 lg:h-12 lg:w-12" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 pt-0 lg:pt-2">
-                    <div className="mb-2 flex items-baseline gap-4 md:mb-4">
-                      <span className="font-medium text-[50px] text-foreground/[0.06] leading-none tracking-[-2px] md:text-[65px] md:tracking-[-3px] lg:text-[80px] lg:tracking-[-4px]">
-                        {step.number}
-                      </span>
-                    </div>
-                    <h3 className="-mt-8 mb-3 font-normal text-[22px] text-foreground leading-tight tracking-[-0.5px] md:-mt-10 md:mb-4 md:text-[24px] md:tracking-[-0.8px] lg:-mt-12 lg:text-[28px] lg:tracking-[-1px]">
-                      {step.title}
-                    </h3>
-                    <p className="max-w-lg text-[15px] text-foreground/60 leading-relaxed md:text-[17px]">
-                      {step.description}
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          {steps.map((step, index) => (
+            <motion.article
+              className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent p-5"
+              initial={{ opacity: 0, y: 22 }}
+              key={step.title}
+              transition={{ duration: 0.5, delay: index * 0.07 }}
+              viewport={{ once: true }}
+              whileInView={{ opacity: 1, y: 0 }}
+            >
+              <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/14 text-amber-300">
+                <step.icon className="h-5 w-5" />
+              </div>
+              <h3 className="text-[18px] leading-tight">{step.title}</h3>
+              <p className="mt-2 text-[14px] text-foreground/64 leading-relaxed">
+                {step.description}
+              </p>
+            </motion.article>
+          ))}
         </div>
+
+        <p className="mx-auto mt-8 max-w-3xl text-center text-[15px] text-foreground/78 leading-relaxed md:text-[17px]">
+          Every belief has a state. Every state has evidence. Every change is
+          time-bound.
+        </p>
       </div>
     </section>
   );
