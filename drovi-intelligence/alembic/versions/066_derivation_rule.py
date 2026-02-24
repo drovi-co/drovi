@@ -59,11 +59,11 @@ def upgrade() -> None:
     op.create_index("derivation_rule_active_idx", "derivation_rule", ["is_active"])
     op.create_index("derivation_rule_domain_idx", "derivation_rule", ["domain"])
 
+    op.execute("ALTER TABLE derivation_rule ENABLE ROW LEVEL SECURITY;")
+    op.execute("ALTER TABLE derivation_rule FORCE ROW LEVEL SECURITY;")
+    op.execute("DROP POLICY IF EXISTS derivation_rule_org_isolation ON derivation_rule;")
     op.execute(
         """
-        ALTER TABLE derivation_rule ENABLE ROW LEVEL SECURITY;
-        ALTER TABLE derivation_rule FORCE ROW LEVEL SECURITY;
-        DROP POLICY IF EXISTS derivation_rule_org_isolation ON derivation_rule;
         CREATE POLICY derivation_rule_org_isolation ON derivation_rule
             USING (
                 current_setting('app.is_internal', true) = 'true'

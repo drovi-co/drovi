@@ -21,11 +21,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def _enable_rls(table: str, column: str = "organization_id") -> None:
     policy_name = f"{table}_org_isolation"
+    op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;")
+    op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY;")
+    op.execute(f"DROP POLICY IF EXISTS {policy_name} ON {table};")
     op.execute(
         f"""
-        ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;
-        ALTER TABLE {table} FORCE ROW LEVEL SECURITY;
-        DROP POLICY IF EXISTS {policy_name} ON {table};
         CREATE POLICY {policy_name} ON {table}
             USING (
                 current_setting('app.is_internal', true) = 'true'
