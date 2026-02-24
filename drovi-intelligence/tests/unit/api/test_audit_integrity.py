@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.api.routes.audit import verify_audit_ledger
+from src.api.routes.audit import replay_reasoning_path, verify_audit_ledger
 from src.auth.context import AuthMetadata, AuthType
 from src.auth.middleware import APIKeyContext
 
@@ -184,3 +184,45 @@ async def test_verify_audit_ledger_accepts_valid_chain():
 
     assert result["valid"] is True
     assert result["invalid_entries"] == []
+
+
+@pytest.mark.asyncio
+async def test_replay_reasoning_path_returns_cognitive_audit_sequence():
+    created_at = datetime(2026, 2, 20, 9, 0, tzinfo=timezone.utc)
+    rows_result = MagicMock()
+    rows_result.fetchall.return_value = [
+        SimpleNamespace(
+            sequence=7,
+            prev_hash="prev_hash",
+            entry_hash="entry_hash",
+            action="brain.belief.revised",
+            actor_type="api_key",
+            actor_id="key_test",
+            resource_type="belief",
+            resource_id="belief_1",
+            metadata={"next_state": "contested"},
+            created_at=created_at,
+        )
+    ]
+
+    session = AsyncMock()
+    session.execute.side_effect = [rows_result]
+
+    @asynccontextmanager
+    async def fake_session():
+        yield session
+
+    with patch("src.api.routes.audit.get_db_session", fake_session), patch(
+        "src.api.routes.audit.set_rls_context",
+        lambda *_args, **_kwargs: None,
+    ):
+        result = await replay_reasoning_path(
+            organization_id="org_1",
+            limit=50,
+            resource_id=None,
+            ctx=_ctx(),
+        )
+
+    assert result["organization_id"] == "org_1"
+    assert result["event_count"] == 1
+    assert result["events"][0]["action"] == "brain.belief.revised"

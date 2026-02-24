@@ -156,6 +156,56 @@ async def test_scheduled_sync_sweep_enqueues_all_active_connections() -> None:
 
 
 @pytest.mark.unit
+async def test_scheduled_sync_sweep_uses_continuous_world_job_shape() -> None:
+    enqueue_calls: list[dict[str, Any]] = []
+
+    @activity.defn(name="connections.list_active")
+    async def list_active(_req: dict[str, Any]) -> list[dict[str, Any]]:
+        return [
+            {
+                "connection_id": "cw1",
+                "organization_id": "o1",
+                "connector_type": "worldnewsapi",
+                "sync_frequency_minutes": 5,
+                "scheduled_interval_minutes": 2,
+                "sync_job_type": "continuous",
+                "catchup_mode": True,
+                "cadence_reasons": ["backlog_catchup"],
+                "freshness_lag_minutes": 120,
+                "quota_headroom_ratio": 0.9,
+                "voi_priority": 0.9,
+            }
+        ]
+
+    @activity.defn(name="jobs.enqueue")
+    async def enqueue(req: dict[str, Any]) -> str:
+        enqueue_calls.append(req)
+        return "job_1"
+
+    async with await WorkflowEnvironment.start_time_skipping() as env:
+        async with Worker(
+            env.client,
+            task_queue="unit-sweep-world",
+            workflows=[ScheduledSyncSweepWorkflow],
+            activities=[list_active, enqueue],
+        ):
+            handle = await env.client.start_workflow(
+                ScheduledSyncSweepWorkflow.run,
+                {"default_interval_minutes": 5, "sweep_limit": 100},
+                id="wf-sweep-world-1",
+                task_queue="unit-sweep-world",
+            )
+            result = await handle.result()
+
+    assert result["enqueued"] == 1
+    req = enqueue_calls[0]
+    assert req["idempotency_key"].startswith("continuous_ingest:cw1:")
+    assert req["priority"] == 1
+    assert req["payload"]["sync_job_type"] == "continuous"
+    assert req["payload"]["sync_params"]["continuous_ingest"] is True
+
+
+@pytest.mark.unit
 async def test_indexes_outbox_drain_cron_enqueues_job() -> None:
     enqueue_calls: list[dict[str, Any]] = []
 

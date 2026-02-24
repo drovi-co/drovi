@@ -18,6 +18,12 @@ variable "private_subnet_ids" {
   type        = list(string)
 }
 
+variable "trusted_security_group_ids" {
+  description = "Additional security groups allowed to access managed data services."
+  type        = list(string)
+  default     = []
+}
+
 variable "production_mode" {
   description = "True when running production environment."
   type        = bool
@@ -121,6 +127,11 @@ variable "evidence_bucket_name" {
   type        = string
 }
 
+variable "lakehouse_bucket_name" {
+  description = "S3 lakehouse bucket name."
+  type        = string
+}
+
 variable "s3_object_lock_enabled" {
   description = "Enable object lock on evidence bucket."
   type        = bool
@@ -129,6 +140,45 @@ variable "s3_object_lock_enabled" {
 variable "evidence_default_retention_days" {
   description = "Default object lock retention days."
   type        = number
+}
+
+variable "lakehouse_hot_retention_days" {
+  description = "Lakehouse hot tier retention in days."
+  type        = number
+}
+
+variable "lakehouse_warm_retention_days" {
+  description = "Lakehouse warm tier retention in days."
+  type        = number
+}
+
+variable "lakehouse_cold_retention_days" {
+  description = "Lakehouse cold tier retention in days."
+  type        = number
+}
+
+variable "enable_glue_schema_registry" {
+  description = "Create AWS Glue Schema Registry."
+  type        = bool
+  default     = true
+}
+
+variable "glue_schema_registry_name" {
+  description = "Optional override for Glue Schema Registry name."
+  type        = string
+  default     = ""
+}
+
+variable "enable_world_brain_managed_secrets" {
+  description = "Create provider credential placeholders in Secrets Manager."
+  type        = bool
+  default     = false
+}
+
+variable "world_brain_managed_secret_names" {
+  description = "Secret name suffixes for world-brain provider credentials."
+  type        = list(string)
+  default     = []
 }
 
 variable "web_cors_origins" {

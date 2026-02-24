@@ -1,9 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createDefaultState, installWebApiMocks } from "./helpers/web-api-mocks";
+import {
+  createDefaultWorldBrainState,
+  installWorldBrainApiMocks,
+} from "./helpers/world-brain-api-mocks";
 
 const ROUTE_LOAD_BUDGET_MS = 1600;
 const INITIAL_TTFB_BUDGET_MS = 600;
 const INITIAL_DCL_BUDGET_MS = 2200;
+const WORLD_BRAIN_ROUTE_LOAD_BUDGET_MS = 2200;
+const WORLD_BRAIN_PROOF_INTERACTION_BUDGET_MS = 700;
 
 async function measureRouteLoadMs(page: Page, path: string): Promise<number> {
   const startedAt = Date.now();
@@ -37,6 +43,13 @@ test("core routes stay within UX performance budgets", async ({ page }) => {
   state.org.connection_count = 1;
 
   await installWebApiMocks(page, state);
+  await installWorldBrainApiMocks(
+    page,
+    createDefaultWorldBrainState({
+      organizationId: state.user.org_id,
+      role: state.user.role,
+    })
+  );
   await page.addInitScript(() => {
     window.localStorage.setItem("drovi:onboarding", "complete");
   });
@@ -63,4 +76,20 @@ test("core routes stay within UX performance budgets", async ({ page }) => {
 
   const driveLoadMs = await measureRouteLoadMs(page, "/dashboard/drive");
   expect(driveLoadMs).toBeLessThan(ROUTE_LOAD_BUDGET_MS);
+
+  const worldBrainLoadStartedAt = Date.now();
+  await page.getByRole("link", { name: /world brain/i }).first().click();
+  await expect(
+    page.getByRole("heading", { name: "World Brain Control Room" })
+  ).toBeVisible();
+  const worldBrainLoadMs = Date.now() - worldBrainLoadStartedAt;
+  expect(worldBrainLoadMs).toBeLessThan(WORLD_BRAIN_ROUTE_LOAD_BUDGET_MS);
+
+  const proofInteractionStartedAt = Date.now();
+  await page.getByTestId("open-proof-evt_bridge_conflict").first().click();
+  await expect(page.getByRole("heading", { name: "Proof Bundle" })).toBeVisible();
+  const proofInteractionLatencyMs = Date.now() - proofInteractionStartedAt;
+  expect(proofInteractionLatencyMs).toBeLessThan(
+    WORLD_BRAIN_PROOF_INTERACTION_BUDGET_MS
+  );
 });

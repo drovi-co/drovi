@@ -4,6 +4,7 @@ from src.db.models.connections import (
     Base,
     Connection,
     OAuthToken,
+    SourceSyncRun,
     SyncState,
     SyncJobHistory,
 )
@@ -35,11 +36,38 @@ from src.db.models.support_tickets import (
     SupportTicketMessage,
     SupportTicketAttachment,
 )
+from src.db.models.cognitive import (
+    Observation,
+    ObservationEvidenceLink,
+    Belief,
+    BeliefRevision,
+    Hypothesis,
+    HypothesisScore,
+    CognitiveConstraint,
+    ConstraintViolationCandidate,
+    ImpactEdge,
+    InterventionPlan,
+    RealizedOutcome,
+    UncertaintyState,
+    SourceReliabilityProfile,
+)
+from src.db.models.crawlers import (
+    CrawlFrontierEntry,
+    CrawlPolicyRule,
+    CrawlSnapshot,
+    CrawlAuditLog,
+)
+from src.db.models.lakehouse import (
+    LakehouseCheckpoint,
+    LakehousePartition,
+    LakehouseCostAttribution,
+)
 
 __all__ = [
     "Base",
     "Connection",
     "OAuthToken",
+    "SourceSyncRun",
     "SyncState",
     "SyncJobHistory",
     "WebhookSubscription",
@@ -56,4 +84,24 @@ __all__ = [
     "SupportTicket",
     "SupportTicketMessage",
     "SupportTicketAttachment",
+    "Observation",
+    "ObservationEvidenceLink",
+    "Belief",
+    "BeliefRevision",
+    "Hypothesis",
+    "HypothesisScore",
+    "CognitiveConstraint",
+    "ConstraintViolationCandidate",
+    "ImpactEdge",
+    "InterventionPlan",
+    "RealizedOutcome",
+    "UncertaintyState",
+    "SourceReliabilityProfile",
+    "CrawlFrontierEntry",
+    "CrawlPolicyRule",
+    "CrawlSnapshot",
+    "CrawlAuditLog",
+    "LakehouseCheckpoint",
+    "LakehousePartition",
+    "LakehouseCostAttribution",
 ]

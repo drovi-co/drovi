@@ -8,6 +8,39 @@ from uuid import uuid4
 
 from sqlalchemy import text
 
+COGNITIVE_CHAIN_SUBJECT_TYPES = {
+    "observation",
+    "belief",
+    "hypothesis",
+    "constraint_violation_candidate",
+    "impact_edge",
+    "intervention_plan",
+    "realized_outcome",
+}
+
+
+def build_cognitive_chain_metadata(
+    *,
+    subject_type: str,
+    subject_id: str,
+    subject_hash: str | None = None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Create canonical evidence chain metadata for cognitive object references."""
+    if subject_type not in COGNITIVE_CHAIN_SUBJECT_TYPES:
+        supported = ", ".join(sorted(COGNITIVE_CHAIN_SUBJECT_TYPES))
+        raise ValueError(f"Unsupported subject_type '{subject_type}'. Expected one of: {supported}")
+
+    payload: dict[str, Any] = {
+        "subject_type": subject_type,
+        "subject_id": subject_id,
+    }
+    if subject_hash:
+        payload["subject_hash"] = subject_hash
+    if extra:
+        payload["extra"] = extra
+    return payload
+
 
 def calculate_chain_hash(
     prev_hash: str | None,

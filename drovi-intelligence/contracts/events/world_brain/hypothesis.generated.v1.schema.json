@@ -1,0 +1,109 @@
+{
+  "$defs": {
+    "HypothesisGeneratedPayload": {
+      "properties": {
+        "belief_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Belief Id"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "hypothesis_id": {
+          "title": "Hypothesis Id",
+          "type": "string"
+        },
+        "hypothesis_text": {
+          "title": "Hypothesis Text",
+          "type": "string"
+        },
+        "model_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Version"
+        },
+        "posterior_probability": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Posterior Probability",
+          "type": "number"
+        },
+        "prior_probability": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Prior Probability",
+          "type": "number"
+        }
+      },
+      "required": [
+        "hypothesis_id",
+        "hypothesis_text",
+        "prior_probability",
+        "posterior_probability",
+        "generated_at"
+      ],
+      "title": "HypothesisGeneratedPayload",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "const": "hypothesis.generated.v1",
+      "default": "hypothesis.generated.v1",
+      "title": "Event Type",
+      "type": "string"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "organization_id": {
+      "title": "Organization Id",
+      "type": "string"
+    },
+    "payload": {
+      "$ref": "#/$defs/HypothesisGeneratedPayload"
+    },
+    "producer": {
+      "default": "drovi-intelligence",
+      "title": "Producer",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "organization_id",
+    "event_id",
+    "occurred_at",
+    "payload"
+  ],
+  "title": "HypothesisGeneratedEvent",
+  "type": "object"
+}

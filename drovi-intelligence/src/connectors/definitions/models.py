@@ -50,6 +50,20 @@ class BackfillDefaults:
 
 
 @dataclass(frozen=True)
+class CircuitBreakerPolicy:
+    """
+    Provider-scoped circuit breaker controls for connector HTTP requests.
+
+    These settings are applied per connector/provider type to avoid repeated
+    calls into unstable upstreams.
+    """
+
+    enabled: bool = True
+    failure_threshold: int = 5
+    reset_seconds: float = 60.0
+
+
+@dataclass(frozen=True)
 class ConnectorDefinition:
     """Static metadata for a connector type.
 
@@ -72,6 +86,7 @@ class ConnectorDefinition:
     # Capabilities / limits
     capabilities: ConnectorCapabilities = field(default_factory=ConnectorCapabilities)
     http_retry: HttpRetryPolicy = field(default_factory=HttpRetryPolicy)
+    circuit_breaker: CircuitBreakerPolicy = field(default_factory=CircuitBreakerPolicy)
     backfill_defaults: BackfillDefaults = field(default_factory=BackfillDefaults)
 
     # Streams

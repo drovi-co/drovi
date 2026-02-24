@@ -1,0 +1,100 @@
+{
+  "$defs": {
+    "OutcomeRealizedPayload": {
+      "properties": {
+        "intervention_plan_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intervention Plan Id"
+        },
+        "measured_at": {
+          "format": "date-time",
+          "title": "Measured At",
+          "type": "string"
+        },
+        "outcome_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outcome Hash"
+        },
+        "outcome_payload": {
+          "additionalProperties": true,
+          "title": "Outcome Payload",
+          "type": "object"
+        },
+        "outcome_type": {
+          "title": "Outcome Type",
+          "type": "string"
+        },
+        "realized_outcome_id": {
+          "title": "Realized Outcome Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "realized_outcome_id",
+        "outcome_type",
+        "measured_at"
+      ],
+      "title": "OutcomeRealizedPayload",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "const": "outcome.realized.v1",
+      "default": "outcome.realized.v1",
+      "title": "Event Type",
+      "type": "string"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "organization_id": {
+      "title": "Organization Id",
+      "type": "string"
+    },
+    "payload": {
+      "$ref": "#/$defs/OutcomeRealizedPayload"
+    },
+    "producer": {
+      "default": "drovi-intelligence",
+      "title": "Producer",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "organization_id",
+    "event_id",
+    "occurred_at",
+    "payload"
+  ],
+  "title": "OutcomeRealizedEvent",
+  "type": "object"
+}

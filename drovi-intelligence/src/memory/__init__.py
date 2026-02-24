@@ -12,6 +12,10 @@ from .graphiti_enhanced import (
     get_enhanced_graphiti,
     close_all_enhanced_graphiti,
 )
+from .world_brain import (
+    WorldBrainDryRunInput,
+    WorldBrainDryRunPipeline,
+)
 
 __all__ = [
     # Legacy custom memory (kept for backward compatibility)
@@ -28,4 +32,7 @@ __all__ = [
     "EnhancedGraphiti",
     "get_enhanced_graphiti",
     "close_all_enhanced_graphiti",
+    # World Brain dry-run pipeline
+    "WorldBrainDryRunInput",
+    "WorldBrainDryRunPipeline",
 ]

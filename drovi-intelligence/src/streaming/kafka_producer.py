@@ -14,7 +14,8 @@ Topics:
 
 import asyncio
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timezone
+import hashlib
 from typing import Any
 from uuid import uuid4
 
@@ -282,6 +283,156 @@ class DroviKafkaProducer:
 
         return event_id
 
+    async def produce_observation_raw_event(
+        self,
+        *,
+        organization_id: str,
+        source_type: str,
+        observation_type: str,
+        content: dict[str, Any],
+        source_ref: str | None = None,
+        tags: list[str] | None = None,
+        source_metadata: dict[str, Any] | None = None,
+        ingest_run_id: str | None = None,
+        reliability_score: float | None = None,
+        trace_id: str | None = None,
+        observed_at: datetime | None = None,
+        deterministic_key: str | None = None,
+        persist_raw_payload: bool = True,
+        artifact_id: str | None = None,
+        artifact_sha256: str | None = None,
+        artifact_storage_path: str | None = None,
+        artifact_size_bytes: int | None = None,
+        legal_hold: bool = False,
+    ) -> str:
+        """
+        Produce a contract-validated observation.raw.v1 event.
+
+        When `persist_raw_payload=True`, raw content is first persisted as an
+        immutable evidence artifact to satisfy raw-before-transform guarantees.
+        """
+        from src.ingestion.raw_capture import persist_raw_observation_payload
+
+        settings = get_settings()
+        metadata = dict(source_metadata or {})
+        observed_ts = observed_at or datetime.now(timezone.utc)
+        if observed_ts.tzinfo is None:
+            observed_ts = observed_ts.replace(tzinfo=timezone.utc)
+        else:
+            observed_ts = observed_ts.astimezone(timezone.utc)
+
+        event_id = (
+            hashlib.sha256(str(deterministic_key).encode("utf-8")).hexdigest()[:32]
+            if deterministic_key
+            else str(uuid4())
+        )
+        resolved_trace_id = trace_id or hashlib.sha256(
+            f"trace:{organization_id}:{source_type}:{source_ref or event_id}".encode("utf-8")
+        ).hexdigest()[:32]
+        resolved_tags = list(tags or [])
+        if "raw" not in resolved_tags:
+            resolved_tags.append("raw")
+
+        resolved_artifact_id = artifact_id
+        resolved_artifact_sha256 = artifact_sha256
+        resolved_artifact_storage_path = artifact_storage_path
+        if persist_raw_payload:
+            artifact = await persist_raw_observation_payload(
+                organization_id=organization_id,
+                source_type=source_type,
+                source_id=source_ref,
+                payload=content,
+                artifact_id=artifact_id or f"obsraw-{event_id}",
+                observed_at=observed_ts,
+                metadata={
+                    **metadata,
+                    "observation_type": observation_type,
+                    "trace_id": resolved_trace_id,
+                    "ingest_run_id": ingest_run_id,
+                },
+                immutable=True,
+                legal_hold=bool(legal_hold),
+            )
+            resolved_artifact_id = artifact.artifact_id
+            resolved_artifact_sha256 = artifact.sha256
+            resolved_artifact_storage_path = artifact.storage_path
+            artifact_size_bytes = artifact.byte_size
+
+        event = {
+            "schema_version": "1.0",
+            "organization_id": organization_id,
+            "event_id": event_id,
+            "occurred_at": observed_ts,
+            "producer": "drovi-intelligence",
+            "event_type": "observation.raw.v1",
+            "payload": {
+                "observation_id": event_id,
+                "source_type": source_type,
+                "source_ref": source_ref,
+                "observation_type": observation_type,
+                "content": content,
+                "observed_at": observed_ts,
+                "reliability_score": reliability_score,
+                "artifact_id": resolved_artifact_id,
+                "artifact_sha256": resolved_artifact_sha256,
+                "artifact_storage_path": resolved_artifact_storage_path,
+                "ingest_run_id": ingest_run_id,
+                "source_metadata": {
+                    **metadata,
+                    "artifact_size_bytes": artifact_size_bytes,
+                },
+                "trace_id": resolved_trace_id,
+                "tags": resolved_tags,
+            },
+        }
+
+        return await self.produce_world_brain_event(
+            event_type="observation.raw.v1",
+            topic=settings.kafka_topic_raw_events,
+            event=event,
+            key=f"{organization_id}:observation.raw.v1:{event_id}",
+            headers={
+                "organization_id": organization_id,
+                "source_type": source_type,
+                "trace_id": resolved_trace_id,
+            },
+        )
+
+    async def produce_world_brain_event(
+        self,
+        *,
+        event_type: str,
+        event: dict[str, Any],
+        topic: str,
+        key: str | None = None,
+        headers: dict[str, str] | None = None,
+        wait_for_delivery: bool = False,
+    ) -> str:
+        """Produce a contract-validated World Brain event."""
+        from src.streaming.world_brain_event_contracts import validate_world_brain_event
+        from src.streaming.schema_registry import get_schema_registry
+
+        validated = validate_world_brain_event(event_type, event)
+        payload = validated.model_dump(mode="json")
+        if get_settings().kafka_schema_registry_enforced:
+            get_schema_registry().validate_payload_shape(subject=event_type, payload=payload)
+        idempotency_key = (
+            f"world_brain:{payload['organization_id']}:"
+            f"{payload['event_type']}:{payload['event_id']}"
+        )
+        merged_headers = {**(headers or {})}
+        merged_headers.setdefault("drovi_idempotency_key", idempotency_key)
+        merged_headers.setdefault("event_type", payload["event_type"])
+        key = key or f"{payload['organization_id']}:{payload['event_type']}:{payload['event_id']}"
+
+        return await self.produce(
+            topic=topic,
+            value=payload,
+            key=key,
+            headers=merged_headers,
+            wait_for_delivery=wait_for_delivery,
+        )
+
     async def produce_intelligence(
         self,
         organization_id: str,
@@ -387,6 +538,7 @@ class DroviKafkaProducer:
         pipeline_id: str,
         data: dict[str, Any],
         priority: str | int | None = None,
+        idempotency_key: str | None = None,
     ) -> str:
         """Produce an intelligence pipeline input event."""
         settings = get_settings()
@@ -397,6 +549,7 @@ class DroviKafkaProducer:
             headers={
                 "organization_id": organization_id,
                 "priority": str(priority) if priority is not None else None,
+                "drovi_idempotency_key": idempotency_key,
             },
         )
         return msg_id

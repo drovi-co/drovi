@@ -13,6 +13,7 @@ from src.trust.indicators import get_trust_indicators
 from src.trust.products import (
     compute_continuity_score,
     export_evidence_bundle,
+    export_governance_bundle,
     generate_monthly_integrity_report,
     generate_record_certificate,
     get_retention_profile,
@@ -73,6 +74,14 @@ class EvidenceLegalHoldRequest(BaseModel):
     legal_hold: bool
     reason: str | None = None
     retention_until: datetime | None = None
+
+
+class GovernanceBundleRequest(BaseModel):
+    organization_id: str
+    include_evidence_bundle: bool = False
+    include_presigned_urls: bool = False
+    uio_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
 
 
 @router.get("/continuity-score")
@@ -138,6 +147,25 @@ async def evidence_bundle_export(
             uio_ids=request.uio_ids,
             evidence_ids=request.evidence_ids,
             include_presigned_urls=request.include_presigned_urls,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/governance-bundles/export")
+async def governance_bundle_export(
+    request: GovernanceBundleRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.ADMIN)),
+):
+    _validate_org_id(ctx, request.organization_id)
+    _require_admin_scope(ctx)
+    try:
+        return await export_governance_bundle(
+            organization_id=request.organization_id,
+            include_evidence_bundle=request.include_evidence_bundle,
+            include_presigned_urls=request.include_presigned_urls,
+            uio_ids=request.uio_ids,
+            evidence_ids=request.evidence_ids,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

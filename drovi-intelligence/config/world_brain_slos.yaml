@@ -1,0 +1,19 @@
+# World Brain operational SLO budgets (Phase 14 baseline)
+#
+# p95 targets are strict budgets for steady-state production traffic.
+# Error budgets are maximum failure rates over the same window.
+
+operations:
+  belief_update:
+    p95_ms: 250
+    max_error_rate: 0.02
+    min_samples: 25
+  impact_compute:
+    p95_ms: 400
+    max_error_rate: 0.03
+    min_samples: 25
+  tape_publish:
+    p95_ms: 1000
+    max_error_rate: 0.01
+    min_samples: 50
+

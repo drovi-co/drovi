@@ -1,6 +1,11 @@
 from datetime import datetime
 
-from src.evidence.chain import calculate_chain_hash
+import pytest
+
+from src.evidence.chain import (
+    build_cognitive_chain_metadata,
+    calculate_chain_hash,
+)
 
 
 def test_calculate_chain_hash_is_deterministic():
@@ -41,3 +46,27 @@ def test_calculate_chain_hash_changes_with_payload():
     )
 
     assert hash_a != hash_b
+
+
+def test_build_cognitive_chain_metadata_includes_hash_and_extra():
+    metadata = build_cognitive_chain_metadata(
+        subject_type="belief",
+        subject_id="belief-1",
+        subject_hash="hash-1",
+        extra={"origin": "test"},
+    )
+
+    assert metadata == {
+        "subject_type": "belief",
+        "subject_id": "belief-1",
+        "subject_hash": "hash-1",
+        "extra": {"origin": "test"},
+    }
+
+
+def test_build_cognitive_chain_metadata_rejects_unsupported_subject_type():
+    with pytest.raises(ValueError):
+        build_cognitive_chain_metadata(
+            subject_type="unknown_subject",
+            subject_id="obj-1",
+        )

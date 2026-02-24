@@ -1,0 +1,57 @@
+{
+  "version": "1.0",
+  "domain": "world_brain",
+  "contract": "tape",
+  "description": "Ledger Tape query and visualization contract.",
+  "endpoints": [
+    {
+      "path": "/api/v1/brain/tape",
+      "method": "GET",
+      "response": {
+        "success": "boolean",
+        "count": "integer",
+        "items": "TapeEvent[]"
+      }
+    },
+    {
+      "path": "/api/v1/brain/tape/live-contract",
+      "method": "GET",
+      "response": {
+        "success": "boolean",
+        "contract": "TapeLiveContract"
+      }
+    },
+    {
+      "path": "/api/v1/brain/tape/{event_id}",
+      "method": "GET",
+      "response": {
+        "success": "boolean",
+        "event": "TapeEvent",
+        "proof_bundle": "ProofBundle"
+      }
+    }
+  ],
+  "types": {
+    "TapeEvent": {
+      "event_id": "string",
+      "lane": "internal|external|bridge",
+      "delta_domain": "belief|hypothesis|constraint|causal|impact|intervention",
+      "severity": "low|medium|high|critical",
+      "confidence": "number",
+      "summary": "string",
+      "occurred_at": "datetime",
+      "proof_bundle": "ProofBundle"
+    },
+    "ProofBundle": {
+      "bundle_id": "string",
+      "citations": "Citation[]",
+      "timeline": "TimelineEntry[]",
+      "confidence_reasoning": "object"
+    },
+    "TapeLiveContract": {
+      "lanes": "object",
+      "visualization_contract": "object",
+      "filters": "object"
+    }
+  }
+}

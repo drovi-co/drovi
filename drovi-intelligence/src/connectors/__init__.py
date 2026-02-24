@@ -36,6 +36,16 @@ if TYPE_CHECKING:  # pragma: no cover
     from src.connectors.sources.productivity.notion.connector import NotionConnector as NotionConnector
     from src.connectors.sources.storage.bigquery import BigQueryConnector as BigQueryConnector
     from src.connectors.sources.storage.s3 import S3Connector as S3Connector
+    from src.connectors.sources.world.cisa_kev import CisaKevConnector as CisaKevConnector
+    from src.connectors.sources.world.commercial_premium import (
+        CommercialPremiumConnector as CommercialPremiumConnector,
+    )
+    from src.connectors.sources.world.crossref import CrossrefConnector as CrossrefConnector
+    from src.connectors.sources.world.federal_register import FederalRegisterConnector as FederalRegisterConnector
+    from src.connectors.sources.world.fred import FredConnector as FredConnector
+    from src.connectors.sources.world.rss_osint import RssOsintConnector as RssOsintConnector
+    from src.connectors.sources.world.sec_edgar import SecEdgarConnector as SecEdgarConnector
+    from src.connectors.sources.world.worldnewsapi import WorldNewsApiConnector as WorldNewsApiConnector
 
 
 _LAZY_CONNECTORS: dict[str, str] = {
@@ -62,6 +72,15 @@ _LAZY_CONNECTORS: dict[str, str] = {
     "MongoDBConnector": "src.connectors.sources.databases.mongodb",
     # Files
     "DocumentConnector": "src.connectors.sources.files.documents",
+    # World/public sources
+    "SecEdgarConnector": "src.connectors.sources.world.sec_edgar",
+    "FederalRegisterConnector": "src.connectors.sources.world.federal_register",
+    "FredConnector": "src.connectors.sources.world.fred",
+    "CrossrefConnector": "src.connectors.sources.world.crossref",
+    "CisaKevConnector": "src.connectors.sources.world.cisa_kev",
+    "CommercialPremiumConnector": "src.connectors.sources.world.commercial_premium",
+    "RssOsintConnector": "src.connectors.sources.world.rss_osint",
+    "WorldNewsApiConnector": "src.connectors.sources.world.worldnewsapi",
 }
 
 
@@ -92,4 +111,3 @@ __all__ = [
     # Lazy connector exports
     *_LAZY_CONNECTORS.keys(),
 ]
-

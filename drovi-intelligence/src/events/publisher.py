@@ -370,6 +370,36 @@ class EventPublisher:
         )
         return await self.publish(event)
 
+    async def publish_world_brain_contract_event(
+        self,
+        contract_event: dict[str, Any],
+        *,
+        correlation_id: str | None = None,
+        broadcast: bool = False,
+    ) -> bool:
+        """Publish a contract-validated World Brain event."""
+        from src.events.types import is_world_brain_event_type
+        from src.streaming.world_brain_event_contracts import validate_world_brain_event
+
+        event_type = str(contract_event.get("event_type") or "").strip()
+        if not event_type:
+            raise ValueError("contract_event.event_type is required")
+        if not is_world_brain_event_type(event_type):
+            raise ValueError(f"{event_type} is not a versioned World Brain event type")
+
+        validated = validate_world_brain_event(event_type, contract_event)
+        payload = validated.model_dump(mode="json")
+        event = Event(
+            event_id=payload["event_id"],
+            event_type=EventType(payload["event_type"]),
+            organization_id=payload["organization_id"],
+            payload=payload,
+            timestamp=validated.occurred_at,
+            correlation_id=correlation_id,
+            source="world_brain",
+        )
+        return await self.publish(event, broadcast=broadcast)
+
 
 async def get_event_publisher() -> EventPublisher:
     """Get or create the singleton event publisher."""

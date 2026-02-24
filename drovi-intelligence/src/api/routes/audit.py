@@ -230,3 +230,87 @@ async def refresh_integrity_snapshot(
     job = get_custody_integrity_job()
     result = await job.run(organization_id=organization_id, root_date=target_date)
     return {"status": "completed", "result": result}
+
+
+@router.get("/reasoning-replay")
+async def replay_reasoning_path(
+    organization_id: str = Query(...),
+    limit: int = Query(default=200, ge=1, le=2000),
+    resource_id: str | None = Query(default=None),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.ADMIN)),
+):
+    """
+    Reconstruct end-to-end reasoning path from immutable audit chain.
+
+    Includes belief updates, contradiction lifecycle, simulation decisions,
+    impact computation, and intervention lifecycle events.
+    """
+    _validate_org_id(ctx, organization_id)
+    cognitive_actions = (
+        "brain.belief.revised",
+        "brain.contradiction.created",
+        "brain.contradiction.resolved",
+        "brain.simulation.executed",
+        "brain.impact.compute",
+        "brain.intervention.proposed",
+        "brain.intervention.outcome.captured",
+        "brain.counterfactual.compare",
+        "brain.world_twin.snapshot",
+        "brain.world_twin.stream_update",
+    )
+    params: dict[str, Any] = {
+        "org_id": organization_id,
+        "actions": list(cognitive_actions),
+        "limit": max(1, min(int(limit), 2000)),
+    }
+    filters = [
+        "organization_id = :org_id",
+        "action = ANY(:actions)",
+    ]
+    if resource_id:
+        filters.append("resource_id = :resource_id")
+        params["resource_id"] = resource_id
+
+    where_clause = " AND ".join(filters)
+    set_rls_context(organization_id, is_internal=True)
+    try:
+        async with get_db_session() as session:
+            result = await session.execute(
+                text(
+                    f"""
+                    SELECT
+                        sequence, prev_hash, entry_hash,
+                        action, actor_type, actor_id,
+                        resource_type, resource_id, metadata, created_at
+                    FROM audit_log
+                    WHERE {where_clause}
+                    ORDER BY sequence ASC NULLS LAST, created_at ASC
+                    LIMIT :limit
+                    """
+                ),
+                params,
+            )
+            rows = result.fetchall()
+    finally:
+        set_rls_context(None, is_internal=False)
+
+    events = [
+        {
+            "sequence": int(row.sequence or 0) if row.sequence is not None else None,
+            "action": row.action,
+            "actor_type": row.actor_type,
+            "actor_id": row.actor_id,
+            "resource_type": row.resource_type,
+            "resource_id": row.resource_id,
+            "metadata": row.metadata if isinstance(row.metadata, dict) else {},
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "prev_hash": row.prev_hash,
+            "entry_hash": row.entry_hash,
+        }
+        for row in rows
+    ]
+    return {
+        "organization_id": organization_id,
+        "event_count": len(events),
+        "events": events,
+    }

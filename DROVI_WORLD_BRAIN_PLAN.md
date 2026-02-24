@@ -264,6 +264,254 @@ If needed for performance, add subservices under `drovi-intelligence/services/`:
 
 These remain internal co-processors driven by Python orchestration + Kafka contracts.
 
+## 6.5 External Ingestion API Universe (Production Catalog)
+
+Do not treat this as one undifferentiated feed. Build a tiered ingestion catalog with explicit ownership, licensing, and SLOs.
+
+Operational source matrix:
+- `/Users/jeremyscatigna/project-memory/DROVI_WORLD_BRAIN_INGESTION_MATRIX.md`
+
+### Tier 0 (Authoritative, Must-Have)
+
+1. Regulatory and legal
+- Federal Register API
+- Regulations.gov API
+- Congress API
+- govinfo API
+- SEC EDGAR submissions/XBRL APIs
+- CourtListener API (opinions/dockets where available)
+- OFAC sanctions datasets
+
+2. Macro and public economic
+- FRED API
+- BLS Public Data API
+- BEA Data API
+- U.S. Treasury Fiscal Data API
+
+3. Research and medical
+- PubMed E-utilities
+- ClinicalTrials.gov API v2
+- openFDA APIs
+- Crossref REST API
+- OpenAlex API
+- Semantic Scholar API
+
+4. Cyber and safety
+- NVD CVE API
+- CISA KEV catalog
+
+### Tier 1 (High-Value Commercial Feeds)
+
+1. Market microstructure and corporate intelligence
+- exchange direct feeds or premium aggregators
+- earnings transcript providers
+- premium filings enrichers
+
+2. Legal/compliance premium feeds
+- commercial legal databases and enforcement trackers
+
+3. Newswire-grade sources
+- licensed enterprise feeds (global and sector-specific)
+- World News API (`https://worldnewsapi.com/docs/`) as a rapid-start global news provider
+
+### Tier 2 (Complementary Open/OSINT)
+
+- GDELT
+- RSS/Atom ecosystems
+- sector-specific portals and watchdog publications
+- public procurement datasets (for supply and counterparty signals)
+
+### Per-Source Metadata (Mandatory)
+
+Every source adapter must declare:
+- licensing class and allowed use
+- expected latency and update frequency
+- reliability baseline and confidence priors
+- legal constraints (ToS, redistribution restrictions, retention)
+- backfill policy and replay method
+- credential sourcing strategy (env var or secret manager path)
+
+### World News API Integration Contract (Detailed)
+
+Provider:
+- `https://worldnewsapi.com/docs/`
+
+Auth and base URL:
+- base: `https://api.worldnewsapi.com`
+- auth modes supported by provider:
+  - query param `api-key=...`
+  - header `x-api-key: ...`
+- Drovi standard: use header auth with `WORLD_NEWS_API_KEY` from secret manager/env.
+
+Primary endpoints and roles in World Brain:
+1. `GET /search-news`
+- targeted entity/event search for exposure-driven discovery
+- key filters: `text`, `language`, `source-country`, `news-sources`, `categories`, `entities`,
+  `earliest-publish-date`, `latest-publish-date`, `min-sentiment`, `max-sentiment`, `offset`, `number`
+
+2. `GET /top-news`
+- high-signal rolling headline intake by country/language/day
+- use for pulse and anomaly detection, not as sole truth source
+
+3. `GET /front-pages`
+- source front-page clustering and priority story detection
+
+4. `GET /retrieve-news`
+- hydration endpoint for article IDs returned by search/top/front-pages
+
+5. `GET /extract-news`
+- URL-to-article extraction when article data is incomplete or external URL is primary signal
+
+6. `GET /extract-news-links`
+- source URL expansion and link discovery for crawl seeding
+
+7. `GET /search-news-sources`
+- source directory lookup and source canonicalization
+
+8. `POST /suggest-news-source`
+- source coverage expansion workflow for missing publishers
+
+9. `GET /feed.rss`
+- RSS generation for non-feed websites to unify downstream ingestion
+
+10. `GET /geo-coordinates`
+- location normalization for geospatial filters and entity linkage
+
+Rate-limit and quota handling:
+- enforce provider rate and concurrency limits in connector scheduler
+- monitor quota headers (`X-API-Quota-Request`, `X-API-Quota-Used`, `X-API-Quota-Left`)
+- treat `429` as retry/backoff, `402` as quota/billing escalation signal
+- implement adaptive polling to stay within budget by tenant priority and VOI score
+- initialize scheduler defaults from provider plan limits (documented examples):
+  - free: `60 req/min`, `1` concurrent
+  - reporter: `2 req/s`, `5` concurrent
+  - journalist: `10 req/s`, `10` concurrent
+  - editor: `20 req/s`, `10` concurrent
+
+Ingestion strategy in Drovi:
+- run `top-news` and `front-pages` on short rolling intervals for broad awareness
+- run `search-news` as exposure-conditioned queries from entity graph and active hypotheses
+- run `retrieve-news` for full hydration before belief promotion
+- run `extract-news`/`extract-news-links` for source expansion and crawl handoff
+
+Normalization and quality:
+- canonical keys: provider article ID + URL + publish timestamp + source
+- cross-endpoint dedupe before observation persistence
+- confidence priors adjusted by source history and corroboration count
+- map provider output to `Observation -> Belief` pipeline with full evidence trace
+
+## 6.6 Scraping and Crawl Fabric (When APIs Are Missing)
+
+Yes, a production scraping stack is required. Many critical domains are not API-first.
+
+Build a **World Crawl Fabric** in `drovi-intelligence`:
+
+1. Frontier and scheduling
+- distributed URL frontier with domain-level budgets
+- freshness-aware recrawl policy
+- priority based on exposure and VOI score
+
+2. Fetch execution
+- static fetch workers for HTML/JSON/XML/PDF
+- browser-render workers (Playwright) for JS-heavy pages
+- proxy and anti-block strategy for reliability where legally permitted
+
+3. Parsing and extraction
+- boilerplate removal
+- structured parser templates by domain/source type
+- OCR/table extraction for scanned PDFs and image-heavy docs
+- document fingerprinting and canonicalization
+
+4. Compliance and governance
+- robots/ToS policy engine
+- source allowlist/denylist and legal review workflow
+- crawl audit trail and takedown handling
+
+5. Change intelligence
+- semantic diffing between snapshots
+- delta extraction and event emission only for meaningful changes
+
+6. Output contracts
+- `observation.raw.web.*` and `observation.normalized.web.*` topics
+- immutable evidence artifact and parse trace per crawl
+
+## 6.7 Data Lakehouse and Storage Architecture (Production Requirement)
+
+For world-scale ingest, Postgres + graphdb alone is insufficient. You need a lakehouse.
+
+Adopt a three-plane architecture:
+
+1. Hot plane (operational)
+- Kafka, Postgres, FalkorDB, Redis
+- powers real-time cognition and user APIs
+
+2. Warm plane (analytical serving)
+- denormalized feature/mart tables for fast model and dashboard access
+
+3. Cold plane (lakehouse)
+- object storage + table format (Iceberg/Delta/Hudi)
+- raw and normalized event history
+- simulation/research datasets and model training corpora
+
+Recommended lakehouse layout:
+- Bronze: immutable raw source captures
+- Silver: normalized observations/entities/evidence links
+- Gold: domain features, aggregated signals, and training-ready tables
+
+Critical lakehouse capabilities:
+- schema evolution with versioning
+- partitioning by source/date/tenant/domain
+- dedupe and late-arrival handling
+- data quality expectations and quarantine flows
+- replay and backfill at scale
+
+## 6.8 New Platform Components Needed For Scale
+
+To be production-ready at massive ingest volume, add:
+
+1. Kafka platform hardening
+- multi-broker cluster sizing and partition strategy
+- schema registry and contract enforcement
+- tiered storage and retention classes
+
+2. Stream processing
+- dedicated stream compute (Flink/Spark Structured Streaming or equivalent)
+- exactly-once or idempotent semantics per sink
+
+3. Lakehouse compute
+- batch and ad-hoc query engines for backfills, model prep, and audits
+
+4. Crawl fleet control plane
+- orchestrator, autoscaling workers, backpressure control, failure budgets
+
+5. Data quality and observability
+- freshness, completeness, and drift monitors
+- source-level SLA dashboards
+
+6. Cost governance
+- per-source ingest cost attribution
+- per-tenant storage and compute accounting
+
+7. Disaster recovery
+- cross-region artifact replication
+- event-log checkpoint and replay recovery drills
+
+## 6.9 Capacity Planning Baseline
+
+Define explicit capacity tiers early:
+
+- event ingest per second (steady + burst)
+- documents/pages/PDFs per day
+- evidence storage growth per month
+- graph edge growth and traversal latency
+- model inference budget by pipeline stage
+
+Then bind each tier to:
+- autoscaling policies
+- retention lifecycle
+- latency SLOs
+- cost ceilings
+
 ---
 
 ## 7) New Data Model (Research-Grade)
@@ -351,6 +599,113 @@ System decides additional ingestion/computation based on expected uncertainty re
 
 This makes the brain selective and strategic, not a passive aggregator.
 
+## 8.4 Model Families and Deep Algorithms
+
+Use specialized models per cognition function instead of one generic model.
+
+1. Neural models:
+- temporal transformers/state-space models for event sequence modeling and drift forecasting
+- graph neural networks for exposure propagation and link prediction
+- dual-encoder entity linking models for candidate generation
+- cross-encoder NLI/verifier models for contradiction and evidence consistency
+
+2. Probabilistic and causal models:
+- Bayesian belief updates for confidence revision under new evidence
+- conformal uncertainty bands for calibrated risk bounds
+- causal discovery/structure learning with domain constraints
+- counterfactual estimators for intervention impact estimation
+
+3. Ranking and retrieval models:
+- multi-stage rankers (candidate retrieval + cross-encoder rerank)
+- source reliability and novelty scoring models
+- de-duplication/similarity models for event collapse
+
+4. Anomaly and regime models:
+- change-point and anomaly detection over market/legal/operational streams
+- regime state classifiers for macro and sector condition shifts
+
+## 8.5 ML Pipelines and ModelOps Architecture
+
+World Brain requires full MLOps, not ad-hoc prompts.
+
+1. Data pipelines:
+- lakehouse bronze/silver/gold pipelines feeding model datasets
+- automated label pipelines from corrections, contradiction resolutions, and outcomes
+
+2. Feature pipelines:
+- offline feature generation for training
+- online feature serving for low-latency inference
+- point-in-time correct feature retrieval for leakage-safe training
+
+3. Training pipelines:
+- scheduled retraining and event-triggered retraining
+- hyperparameter search for high-impact model families
+- reproducible training artifacts with dataset snapshots
+
+4. Model registry and promotion:
+- versioned model registry with lineage (data, code, metrics)
+- stage promotion (`dev -> shadow -> canary -> prod`) with approval gates
+
+5. Evaluation gates:
+- offline benchmark gates by task
+- online shadow comparison against incumbent models
+- rollback on calibration or precision regressions
+
+6. Serving and inference:
+- unified inference gateway for model + LLM calls
+- batch inference jobs for backfills and large recomputes
+- online inference for event-time cognition updates
+
+7. Monitoring:
+- feature drift, concept drift, and calibration drift monitors
+- latency, error, and cost telemetry per model
+- automated retraining triggers tied to monitored degradation
+
+## 8.6 Multi-LLM Mesh (Specialized Roles)
+
+Use multiple LLM families with a policy-aware router:
+
+1. Extractor LLMs:
+- low-latency structured extraction for high-volume inputs
+
+2. Verifier LLMs:
+- high-accuracy claim checking, contradiction validation, and evidence adjudication
+
+3. Planner LLMs:
+- intervention proposal and explanation synthesis with policy constraints
+
+4. Router policy:
+- route by risk class, latency budget, token budget, and required confidence
+- enforce structured JSON outputs and schema validation
+- require explicit fallback chains and failure behavior
+
+## 8.7 Graph Platform Strategy (Current + Future)
+
+Current operational graph:
+- FalkorDB remains primary hot-path graph for live cognition workloads
+
+Required abstraction:
+- add graph access abstraction so query/compute logic is backend-agnostic
+- keep graph semantics portable across potential future engines
+
+When to evaluate additional graph backends:
+- sustained traversal latency misses under production load
+- storage/cardinality limits impacting impact-propagation quality
+- requirement for graph algorithms not performant in current engine
+
+Candidate augmentation path:
+- retain FalkorDB for hot operations
+- add specialized graph analytics backend only when objective triggers are met
+- avoid premature graph migration without benchmark evidence
+
+## 8.8 Compute and Hardware Strategy
+
+For deep models and high-throughput inference, add:
+- GPU inference pool for heavy verifier/planner/cross-encoder models
+- CPU-optimized pool for lightweight extraction/ranking workloads
+- workload queueing and priority classes by risk and SLA
+- autoscaling policies tied to backlog and latency objectives
+
 ---
 
 ## 9) Product Surfaces (Causality-First)
@@ -421,13 +776,29 @@ Given category scope, Drovi must enforce:
 
 ## 12) Phased Build Strategy
 
-## Phase A - Cognitive Core Foundation
+## Phase A0 - Acquisition and Data Platform Foundation
+
+Deliver:
+- tiered source catalog (API + scrape + licensed feeds)
+- crawl fabric v1 with compliance guardrails
+- lakehouse bronze/silver/gold pipelines
+- Kafka schema contracts and replay guarantees
+
+## Phase A1 - Cognitive Core Foundation
 
 Deliver:
 - observation/belief/hypothesis schemas
 - epistemic transitions
 - temporal ledger queries
 - evidence-first persistence
+
+## Phase A2 - ML Platform and ModelOps Foundation
+
+Deliver:
+- feature and label pipelines on lakehouse
+- model registry and promotion workflow
+- unified inference gateway and model router
+- shadow/canary deployment gates with rollback automation
 
 ## Phase B - Live World Twin v1
 

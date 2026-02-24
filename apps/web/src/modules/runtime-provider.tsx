@@ -44,7 +44,9 @@ interface WebRuntimeContextValue {
   refresh: () => Promise<void>;
 }
 
-const DEFAULT_RUNTIME_MODULES = resolveWebModules();
+const DEFAULT_RUNTIME_MODULES = resolveWebModules({
+  enabledCapabilities: { "world.brain.read": false },
+});
 
 const DEFAULT_CONTEXT_VALUE: WebRuntimeContextValue = {
   modules: DEFAULT_RUNTIME_MODULES,
@@ -91,6 +93,105 @@ function parseStringList(value: unknown): string[] {
     return [];
   }
   return value.filter((entry): entry is string => typeof entry === "string");
+}
+
+interface WorldBrainRolloutPolicy {
+  enabled?: boolean;
+  allowedOrgIds: string[];
+  allowedRoles: string[];
+  rolloutPercent?: number;
+}
+
+function normalizeRole(role: string | null): string {
+  return typeof role === "string" ? role.trim().toLowerCase() : "";
+}
+
+function parseWorldBrainRolloutPolicy(
+  manifest: PluginManifest | null
+): WorldBrainRolloutPolicy | null {
+  if (!manifest || !isRecord(manifest.ui_hints)) {
+    return null;
+  }
+
+  const uiHints = manifest.ui_hints;
+  const directPolicy = isRecord(uiHints.world_brain) ? uiHints.world_brain : null;
+  const nestedFeatures = isRecord(uiHints.features) ? uiHints.features : null;
+  const nestedPolicy = nestedFeatures && isRecord(nestedFeatures.world_brain)
+    ? nestedFeatures.world_brain
+    : null;
+  const policy = directPolicy ?? nestedPolicy;
+  if (!policy) {
+    return null;
+  }
+
+  const enabled = typeof policy.enabled === "boolean" ? policy.enabled : undefined;
+  const allowedOrgIds = parseStringList(
+    policy.allowed_org_ids ?? policy.org_ids
+  );
+  const allowedRoles = parseStringList(
+    policy.allowed_roles ?? policy.roles
+  ).map((role) => role.trim().toLowerCase());
+  const rawPercent = policy.rollout_percent ?? policy.rollout_percentage;
+  const rolloutPercent =
+    typeof rawPercent === "number" &&
+    Number.isFinite(rawPercent) &&
+    rawPercent >= 0 &&
+    rawPercent <= 100
+      ? rawPercent
+      : undefined;
+
+  return {
+    enabled,
+    allowedOrgIds,
+    allowedRoles,
+    rolloutPercent,
+  };
+}
+
+function stableRolloutBucket(input: string): number {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash * 33 + input.charCodeAt(i)) % 10007;
+  }
+  return hash % 100;
+}
+
+function evaluateWorldBrainAccessPolicy(
+  manifest: PluginManifest | null,
+  orgId: string | null,
+  role: string | null
+): boolean {
+  const policy = parseWorldBrainRolloutPolicy(manifest);
+  if (!policy) {
+    return false;
+  }
+  if (policy.enabled === false) {
+    return false;
+  }
+  if (policy.allowedOrgIds.length > 0) {
+    if (!orgId || !policy.allowedOrgIds.includes(orgId)) {
+      return false;
+    }
+  }
+  if (policy.allowedRoles.length > 0) {
+    const normalizedRole = normalizeRole(role);
+    if (!normalizedRole || !policy.allowedRoles.includes(normalizedRole)) {
+      return false;
+    }
+  }
+  if (
+    typeof policy.rolloutPercent === "number" &&
+    policy.rolloutPercent >= 0 &&
+    policy.rolloutPercent < 100
+  ) {
+    const bucket = stableRolloutBucket(
+      `${orgId ?? "unknown"}:${normalizeRole(role)}`
+    );
+    if (bucket >= policy.rolloutPercent) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function parseModuleOverrides(
@@ -149,14 +250,25 @@ function parseVerticalId(raw: unknown): VerticalId | null {
   return KNOWN_VERTICAL_IDS.has(raw as VerticalId) ? (raw as VerticalId) : null;
 }
 
-function parseResolveOptions(
-  manifest: PluginManifest | null
-): ResolveWebModulesOptions {
-  if (!manifest) {
+function parseCapabilityStates(
+  value: unknown
+): Partial<Record<string, boolean>> {
+  if (!isRecord(value)) {
     return {};
   }
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, boolean] => typeof entry[1] === "boolean"
+    )
+  );
+}
 
-  const uiHints = isRecord(manifest.ui_hints) ? manifest.ui_hints : {};
+function parseResolveOptions(
+  manifest: PluginManifest | null,
+  context: { orgId: string | null; role: string | null }
+): ResolveWebModulesOptions {
+  const uiHints =
+    manifest && isRecord(manifest.ui_hints) ? manifest.ui_hints : {};
   const verticalId = parseVerticalId(uiHints.vertical);
   const preset = verticalId ? getVerticalPreset(verticalId) : null;
   const manifestOverrides = parseModuleOverrides(
@@ -167,12 +279,47 @@ function parseResolveOptions(
     manifestOverrides
   );
 
+  const manifestGates: NonNullable<ResolveWebModulesOptions["manifestGates"]> =
+    isRecord(uiHints.modules)
+      ? ({
+          ...(
+            uiHints.modules as NonNullable<ResolveWebModulesOptions["manifestGates"]>
+          ),
+        } as NonNullable<ResolveWebModulesOptions["manifestGates"]>)
+      : {};
+
+  const worldBrainEnabled = evaluateWorldBrainAccessPolicy(
+    manifest,
+    context.orgId,
+    context.role
+  );
+
+  if (!worldBrainEnabled) {
+    const existingCoreGate = manifestGates?.["mod-core-shell"] ?? {};
+    const existingDisabledRoutes = existingCoreGate.disabledRoutes ?? [];
+    const existingDisabledNavItems = existingCoreGate.disabledNavItems ?? [];
+    manifestGates["mod-core-shell"] = {
+      ...existingCoreGate,
+      disabledRoutes: Array.from(
+        new Set([...existingDisabledRoutes, "core.world_brain"])
+      ),
+      disabledNavItems: Array.from(
+        new Set([...existingDisabledNavItems, "core.world_brain"])
+      ),
+      capabilities: {
+        ...(existingCoreGate.capabilities ?? {}),
+        "world.brain.read": false,
+      },
+    };
+  }
+
   return {
     appOverrides,
-    manifestGates: isRecord(uiHints.modules)
-      ? (uiHints.modules as ResolveWebModulesOptions["manifestGates"])
-      : undefined,
-    enabledCapabilities: manifest.capabilities,
+    manifestGates,
+    enabledCapabilities: {
+      ...parseCapabilityStates(manifest?.capabilities),
+      "world.brain.read": worldBrainEnabled,
+    },
   };
 }
 
@@ -236,6 +383,7 @@ function parseHiddenNavItems(manifest: PluginManifest | null): string[] {
 
 export function WebRuntimeProvider({ children }: PropsWithChildren) {
   const orgId = useAuthStore((state) => state.user?.org_id ?? null);
+  const userRole = useAuthStore((state) => state.user?.role ?? null);
   const [manifest, setManifest] = useState<PluginManifest | null>(null);
   const [etag, setEtag] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
@@ -285,8 +433,13 @@ export function WebRuntimeProvider({ children }: PropsWithChildren) {
   }, [orgId, refresh]);
 
   const resolved = useMemo(() => {
-    return resolveWebModules(parseResolveOptions(manifest));
-  }, [manifest]);
+    return resolveWebModules(
+      parseResolveOptions(manifest, {
+        orgId,
+        role: userRole,
+      })
+    );
+  }, [manifest, orgId, userRole]);
 
   const themePackId = useMemo(() => parseThemePackId(manifest), [manifest]);
 

@@ -185,6 +185,8 @@ class DroviGraph:
             "CREATE INDEX ON :Commitment(organizationId)",
             "CREATE INDEX ON :Decision(id)",
             "CREATE INDEX ON :Decision(organizationId)",
+            "CREATE INDEX ON :Risk(id)",
+            "CREATE INDEX ON :Risk(organizationId)",
             "CREATE INDEX ON :Topic(id)",
             "CREATE INDEX ON :Project(id)",
             # Contact
@@ -550,6 +552,96 @@ class DroviGraph:
             RETURN type(r) as relType, r, labels(m)[0] as otherType, m
             """
         return await self.query(query, {"id": node_id})
+
+    async def get_causal_edges(
+        self,
+        *,
+        organization_id: str | None = None,
+        source_ref: str | None = None,
+        min_confidence: float = 0.0,
+        limit: int = 2000,
+    ) -> list[dict[str, Any]]:
+        """Fetch CAUSES edges with normalized causal attributes."""
+        conditions = ["COALESCE(r.confidence, 0.0) >= $minConfidence"]
+        params: dict[str, Any] = {
+            "minConfidence": max(0.0, min(float(min_confidence), 1.0)),
+            "limit": max(1, min(int(limit), 10000)),
+        }
+
+        if organization_id:
+            conditions.append("source.organizationId = $orgId")
+            conditions.append("target.organizationId = $orgId")
+            params["orgId"] = organization_id
+        if source_ref:
+            conditions.append("source.id = $sourceRef")
+            params["sourceRef"] = source_ref
+
+        where_clause = " AND ".join(conditions)
+        return await self.query(
+            f"""
+            MATCH (source)-[r:CAUSES]->(target)
+            WHERE {where_clause}
+            RETURN
+                source.id AS source_ref,
+                target.id AS target_ref,
+                COALESCE(r.sign, 1) AS sign,
+                COALESCE(r.strength, 0.5) AS strength,
+                COALESCE(r.lagHours, 24.0) AS lag_hours,
+                COALESCE(r.confidence, 0.5) AS confidence,
+                COALESCE(r.evidenceRefs, []) AS evidence_refs,
+                COALESCE(r.updatedAt, '') AS updated_at
+            ORDER BY source_ref ASC, target_ref ASC
+            LIMIT $limit
+            """,
+            params,
+        )
+
+    async def traverse_causal_impacts(
+        self,
+        *,
+        origin_ref: str,
+        organization_id: str | None = None,
+        max_hops: int = 3,
+        min_confidence: float = 0.1,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        """Traverse causal paths from one origin and return ranked path impacts."""
+        hops = max(1, min(int(max_hops), 6))
+        conditions = [
+            "ALL(rel IN relationships(p) WHERE COALESCE(rel.confidence, 0.0) >= $minConfidence)",
+        ]
+        params: dict[str, Any] = {
+            "originRef": origin_ref,
+            "minConfidence": max(0.0, min(float(min_confidence), 1.0)),
+            "limit": max(1, min(int(limit), 2000)),
+        }
+
+        if organization_id:
+            conditions.append("origin.organizationId = $orgId")
+            conditions.append("target.organizationId = $orgId")
+            params["orgId"] = organization_id
+
+        where_clause = " AND ".join(conditions)
+        return await self.query(
+            f"""
+            MATCH p = (origin {{id: $originRef}})-[:CAUSES*1..{hops}]->(target)
+            WHERE {where_clause}
+            WITH p, target, relationships(p) AS rels
+            RETURN
+                $originRef AS source_ref,
+                target.id AS target_ref,
+                length(p) AS hop,
+                reduce(delta = 1.0, rel IN rels |
+                    delta * COALESCE(rel.sign, 1) * COALESCE(rel.strength, 0.5) * COALESCE(rel.confidence, 0.5)
+                ) AS path_weight,
+                reduce(conf = 1.0, rel IN rels | conf * COALESCE(rel.confidence, 0.5)) AS path_confidence,
+                reduce(lag = 0.0, rel IN rels | lag + COALESCE(rel.lagHours, 24.0)) AS cumulative_lag_hours,
+                [node IN nodes(p) | node.id] AS path
+            ORDER BY abs(path_weight) DESC, hop ASC, target_ref ASC
+            LIMIT $limit
+            """,
+            params,
+        )
 
     # =========================================================================
     # Vector Search

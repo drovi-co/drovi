@@ -38,6 +38,11 @@ output "evidence_bucket_name" {
   value       = module.data.evidence_bucket_name
 }
 
+output "lakehouse_bucket_name" {
+  description = "S3 bucket for world-brain lakehouse partitions."
+  value       = module.data.lakehouse_bucket_name
+}
+
 output "evidence_kms_key_arn" {
   description = "KMS key ARN for evidence encryption."
   value       = module.data.kms_key_arn
@@ -73,6 +78,16 @@ output "redis_auth_token" {
 output "msk_bootstrap_brokers_tls" {
   description = "MSK TLS bootstrap brokers string."
   value       = module.data.msk_bootstrap_brokers_tls
+}
+
+output "glue_schema_registry_name" {
+  description = "AWS Glue schema registry used for world-brain event contracts."
+  value       = module.data.glue_schema_registry_name
+}
+
+output "world_brain_managed_secret_arns" {
+  description = "ARNs for world-brain provider credential placeholders in Secrets Manager."
+  value       = module.data.world_brain_managed_secret_arns
 }
 
 output "msk_scram_username" {

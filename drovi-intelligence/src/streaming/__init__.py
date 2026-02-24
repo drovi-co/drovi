@@ -42,6 +42,7 @@ from .falkordb_sink import (
     close_falkordb_sink,
     StreamProcessor,
 )
+from .schema_registry import get_schema_registry
 
 # Global stream processor instance
 _stream_processor: StreamProcessor | None = None
@@ -85,6 +86,10 @@ async def init_streaming() -> bool:
                 settings.kafka_topic_normalized_records,
                 settings.kafka_topic_pipeline_input,
                 settings.kafka_topic_graph_changes,
+                settings.kafka_topic_crawl_frontier,
+                settings.kafka_topic_crawl_fetch,
+                settings.kafka_topic_crawl_parse,
+                settings.kafka_topic_crawl_diff,
             ],
         )
         return True
@@ -139,6 +144,7 @@ __all__ = [
     "close_falkordb_sink",
     # Stream Processor
     "StreamProcessor",
+    "get_schema_registry",
     # Lifecycle
     "init_streaming",
     "shutdown_streaming",

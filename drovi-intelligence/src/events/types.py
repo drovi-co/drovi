@@ -47,6 +47,20 @@ class EventType(str, Enum):
     BRIEF_GENERATED = "brief.generated"
     CONTRADICTION_DETECTED = "contradiction.detected"
     PATTERN_DETECTED = "pattern.detected"
+    # World Brain contracts
+    OBSERVATION_RAW_V1 = "observation.raw.v1"
+    OBSERVATION_NORMALIZED_V1 = "observation.normalized.v1"
+    BELIEF_UPDATE_V1 = "belief.update.v1"
+    BELIEF_DEGRADED_V1 = "belief.degraded.v1"
+    HYPOTHESIS_GENERATED_V1 = "hypothesis.generated.v1"
+    HYPOTHESIS_REJECTED_V1 = "hypothesis.rejected.v1"
+    CAUSAL_EDGE_UPDATE_V1 = "causal.edge.update.v1"
+    IMPACT_EDGE_COMPUTED_V1 = "impact.edge.computed.v1"
+    CONSTRAINT_VIOLATION_CANDIDATE_V1 = "constraint.violation.candidate.v1"
+    SIMULATION_REQUESTED_V1 = "simulation.requested.v1"
+    SIMULATION_COMPLETED_V1 = "simulation.completed.v1"
+    INTERVENTION_PROPOSED_V1 = "intervention.proposed.v1"
+    OUTCOME_REALIZED_V1 = "outcome.realized.v1"
 
     # Sync events
     SYNC_STARTED = "sync.started"
@@ -132,3 +146,14 @@ def get_broadcast_channel(event_type: EventType | None = None) -> str:
     if event_type:
         return f"{base}:{event_type.value}"
     return base
+
+
+def is_world_brain_event_type(event_type: EventType | str) -> bool:
+    """Return True when event type is part of the versioned World Brain contract set."""
+    value = event_type.value if isinstance(event_type, EventType) else str(event_type)
+    return value.endswith(".v1")
+
+
+def get_world_brain_event_types() -> list[EventType]:
+    """Return all world-brain contract event types."""
+    return [event_type for event_type in EventType if is_world_brain_event_type(event_type)]

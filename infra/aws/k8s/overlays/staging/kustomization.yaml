@@ -8,7 +8,10 @@ patches:
   - path: configmap.patch.yaml
   - path: ingress.patch.yaml
   - path: replicas.patch.yaml
+  - path: world-brain.replicas.patch.yaml
   - path: hpa.patch.yaml
+  - path: world-brain.hpa.patch.yaml
+  - path: world-brain.rollout-strategy.patch.yaml
   - path: resources.patch.yaml
   - path: imperium-api.staging-probes.patch.yaml
   - path: rollout-strategy.patch.yaml

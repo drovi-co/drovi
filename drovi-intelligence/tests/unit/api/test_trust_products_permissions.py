@@ -64,3 +64,35 @@ async def test_record_certificate_allows_admin_scope() -> None:
 
     assert response == expected
     certificate_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_governance_bundle_requires_admin_scope() -> None:
+    with pytest.raises(HTTPException) as exc_info:
+        await trust_route.governance_bundle_export(
+            request=trust_route.GovernanceBundleRequest(organization_id="org_test"),
+            ctx=_ctx(scopes=["read"]),
+        )
+
+    assert exc_info.value.status_code == 403
+    assert "Admin scope required" in str(exc_info.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_governance_bundle_allows_admin_scope() -> None:
+    expected = {"bundle_id": "governance_demo"}
+    with patch(
+        "src.api.routes.trust.export_governance_bundle",
+        AsyncMock(return_value=expected),
+    ) as export_mock:
+        response = await trust_route.governance_bundle_export(
+            request=trust_route.GovernanceBundleRequest(
+                organization_id="org_test",
+                include_evidence_bundle=True,
+                uio_ids=["uio_1"],
+            ),
+            ctx=_ctx(scopes=["admin"]),
+        )
+
+    assert response == expected
+    export_mock.assert_awaited_once()

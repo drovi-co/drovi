@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     together_api_key: str | None = Field(default=None)
     fireworks_api_key: str | None = Field(default=None)
     huggingface_api_key: str | None = Field(default=None)
+    fred_api_key: str | None = Field(default=None)
+    world_news_api_key: str | None = Field(default=None)
 
     # LLM Providers - Proprietary (Fallback)
     openai_api_key: str | None = Field(default=None)
@@ -87,6 +89,8 @@ class Settings(BaseSettings):
     api_key_salt: str = Field(default="")
     connector_token_encryption_key: str | None = Field(default=None)
     connector_token_encryption_previous_keys: str | None = Field(default=None)
+    cognitive_payload_encryption_key: str | None = Field(default=None)
+    cognitive_payload_encryption_previous_keys: str | None = Field(default=None)
     api_base_url: str = Field(default="http://localhost:8000")
     web_app_url: str | None = Field(
         default=None
@@ -143,6 +147,25 @@ class Settings(BaseSettings):
     evidence_default_retention_days: int = Field(default=365)
     evidence_immutable_by_default: bool = Field(default=True)
     evidence_legal_hold_by_default: bool = Field(default=False)
+    lakehouse_storage_path: str = Field(default="/tmp/drovi-lakehouse")
+    lakehouse_table_format: Literal["iceberg", "delta", "hudi"] = Field(default="iceberg")
+    lakehouse_retention_days_default: int = Field(default=365)
+    lakehouse_late_arrival_grace_seconds: int = Field(default=900)
+    lakehouse_quality_enabled: bool = Field(default=True)
+    lakehouse_quality_cron: str = Field(default="*/15 * * * *")
+    lakehouse_retention_enabled: bool = Field(default=True)
+    lakehouse_retention_cron: str = Field(default="45 4 * * *")
+    lakehouse_quality_min_completeness: float = Field(default=0.98)
+    lakehouse_quality_min_uniqueness: float = Field(default=0.995)
+    lakehouse_quality_min_freshness: float = Field(default=0.9)
+    lakehouse_quality_max_staleness_seconds: int = Field(default=7 * 24 * 3600)
+    retention_raw_observation_days: int = Field(default=3650)
+    retention_normalized_observation_days: int = Field(default=1825)
+    retention_derived_feature_days: int = Field(default=1095)
+    source_reliability_calibration_enabled: bool = Field(default=True)
+    source_reliability_calibration_cron: str = Field(default="20 * * * *")
+    source_reliability_lookback_days: int = Field(default=30)
+    source_reliability_limit_sources: int = Field(default=500)
 
     # Documents / Smart Drive storage
     #
@@ -267,6 +290,10 @@ class Settings(BaseSettings):
             "drovi-intelligence": 3,
             "graph.changes": 4,
             "agent.inbox.events": 1,
+            "crawl.frontier.events": 0,
+            "crawl.fetch.events": 0,
+            "crawl.parse.events": 1,
+            "crawl.diff.events": 1,
         }
     )
 
@@ -277,9 +304,14 @@ class Settings(BaseSettings):
     kafka_topic_intelligence: str = Field(default="drovi-intelligence")
     kafka_topic_graph_changes: str = Field(default="graph.changes")
     kafka_topic_agent_inbox_events: str = Field(default="agent.inbox.events")
+    kafka_topic_crawl_frontier: str = Field(default="crawl.frontier.events")
+    kafka_topic_crawl_fetch: str = Field(default="crawl.fetch.events")
+    kafka_topic_crawl_parse: str = Field(default="crawl.parse.events")
+    kafka_topic_crawl_diff: str = Field(default="crawl.diff.events")
     kafka_raw_event_mode: Literal["full", "webhook_only", "disabled"] = Field(default="full")
     kafka_retry_suffix: str = Field(default=".retry")
     kafka_dlq_suffix: str = Field(default=".dlq")
+    kafka_schema_registry_enforced: bool = Field(default=True)
     kafka_max_retry_attempts: int = Field(default=3)
     kafka_max_retry_attempts_by_topic: dict[str, int] = Field(
         default_factory=lambda: {
@@ -304,6 +336,24 @@ class Settings(BaseSettings):
     scheduler_advisory_lock_id: int = Field(default=4242001)
     scheduler_scheduled_syncs_enabled: bool = Field(default=True)
     scheduler_reconcile_interval_seconds: int = Field(default=300)
+    world_ingest_tenant_max_running_jobs: int = Field(default=6)
+    world_ingest_tenant_max_queued_jobs: int = Field(default=120)
+    world_ingest_kill_switch_enabled: bool = Field(default=False)
+    world_ingest_noncritical_priority_threshold: int = Field(default=3)
+    world_ingest_global_throttle_multiplier: float = Field(default=1.0)
+    world_ingest_source_throttle_map: dict[str, float] = Field(default_factory=dict)
+    world_ingest_quarantine_failure_threshold: int = Field(default=5)
+    world_ingest_quarantine_failure_window_minutes: int = Field(default=180)
+    world_ingest_quarantine_duration_minutes: int = Field(default=360)
+    world_twin_hot_cache_enabled: bool = Field(default=True)
+    world_twin_hot_cache_ttl_seconds: int = Field(default=120)
+    world_twin_prematerialize_roles: list[str] = Field(
+        default_factory=lambda: ["exec", "legal", "finance", "product"]
+    )
+    world_twin_prematerialize_lookbacks: list[int] = Field(default_factory=lambda: [24, 168])
+    world_capacity_event_rate_budget_eps: float = Field(default=10000.0)
+    world_capacity_storage_budget_bytes: float = Field(default=5_000_000_000_000.0)
+    world_capacity_graph_node_budget: float = Field(default=5_000_000_000.0)
     connector_health_monitor_enabled: bool = Field(default=True)
     connector_health_monitor_cron: str = Field(default="*/5 * * * *")
     connector_health_stale_multiplier: int = Field(default=3)
@@ -313,12 +363,28 @@ class Settings(BaseSettings):
     connector_health_error_failure_threshold: int = Field(default=2)
     connector_health_auto_recovery_enabled: bool = Field(default=True)
     connector_health_recovery_cooldown_minutes: int = Field(default=30)
+    crawl_frontier_enabled: bool = Field(default=True)
+    crawl_frontier_tick_seconds: int = Field(default=30)
+    crawl_frontier_dispatch_limit: int = Field(default=50)
+    crawl_domain_concurrency_limit: int = Field(default=2)
+    crawl_idempotency_bucket_seconds: int = Field(default=120)
+    crawl_fetch_timeout_seconds: float = Field(default=20.0)
+    crawl_fetch_max_attempts: int = Field(default=3)
+    crawl_proxy_url: str | None = Field(default=None)
+    crawl_user_agent: str = Field(default="DroviWorldCrawler/1.0 (+https://drovi.co/compliance)")
+    crawl_render_timeout_ms: int = Field(default=30000)
+    crawl_robots_enforced: bool = Field(default=True)
+    crawl_robots_timeout_seconds: float = Field(default=5.0)
+    crawl_domain_allowlist: list[str] = Field(default_factory=list)
+    crawl_domain_denylist: list[str] = Field(default_factory=list)
+    crawl_significance_threshold: float = Field(default=0.22)
 
     # Durable jobs worker
     job_worker_poll_interval_seconds: float = Field(default=1.0)
     job_worker_lease_seconds: int = Field(default=600)
     job_worker_reaper_interval_seconds: int = Field(default=60)
     job_worker_reaper_limit: int = Field(default=500)
+    job_worker_allowed_job_types: list[str] = Field(default_factory=list)
 
     # Continuum scheduler settings
     continuum_scheduler_run_in_api: bool = Field(default=True)

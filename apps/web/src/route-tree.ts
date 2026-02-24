@@ -38,6 +38,7 @@ import { Route as DashboardTeamMembersRouteImport } from "./routes/dashboard/tea
 import { Route as DashboardTeamSettingsRouteImport } from "./routes/dashboard/team/settings";
 import { Route as DashboardTrustRouteImport } from "./routes/dashboard/trust";
 import { Route as DashboardUioUioIdRouteImport } from "./routes/dashboard/uio/$uioId";
+import { Route as DashboardWorldBrainIndexRouteImport } from "./routes/dashboard/world-brain/index";
 import { Route as ForgotPasswordRouteImport } from "./routes/forgot-password";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as LoginRouteImport } from "./routes/login";
@@ -219,6 +220,12 @@ const DashboardRealityStreamIndexRoute =
     path: "/reality-stream/",
     getParentRoute: () => DashboardRouteRoute,
   } as any);
+const DashboardWorldBrainIndexRoute =
+  DashboardWorldBrainIndexRouteImport.update({
+    id: "/world-brain/",
+    path: "/world-brain/",
+    getParentRoute: () => DashboardRouteRoute,
+  } as any);
 const DashboardPatternsIndexRoute = DashboardPatternsIndexRouteImport.update({
   id: "/patterns/",
   path: "/patterns/",
@@ -313,6 +320,7 @@ const DashboardRouteRouteWithChildren = DashboardRouteRoute.addChildren([
   DashboardSourcesIndexRoute,
   DashboardSimulationsIndexRoute,
   DashboardRealityStreamIndexRoute,
+  DashboardWorldBrainIndexRoute,
   DashboardPatternsIndexRoute,
   DashboardGraphIndexRoute,
   DashboardDecisionsIndexRoute,

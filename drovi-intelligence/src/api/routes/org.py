@@ -10,6 +10,8 @@ Provides org-level data management for enterprise pilots:
 
 import asyncio
 import json
+from pathlib import Path
+import shutil
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
@@ -1764,6 +1766,34 @@ async def _delete_org_data_background(org_id: str, job_id: str) -> None:
 
     try:
         async with get_db_session() as session:
+            # Delete cognitive observation spine.
+            await session.execute(
+                text("DELETE FROM observation_evidence_link WHERE organization_id = :org_id"),
+                {"org_id": org_id},
+            )
+            await session.execute(
+                text("DELETE FROM observation WHERE organization_id = :org_id"),
+                {"org_id": org_id},
+            )
+            await session.execute(
+                text("DELETE FROM source_reliability_profile WHERE organization_id = :org_id"),
+                {"org_id": org_id},
+            )
+
+            # Delete lakehouse control-plane metadata.
+            await session.execute(
+                text("DELETE FROM lakehouse_cost_attribution WHERE organization_id = :org_id"),
+                {"org_id": org_id},
+            )
+            await session.execute(
+                text("DELETE FROM lakehouse_partition WHERE organization_id = :org_id"),
+                {"org_id": org_id},
+            )
+            await session.execute(
+                text("DELETE FROM lakehouse_checkpoint WHERE organization_id = :org_id"),
+                {"org_id": org_id},
+            )
+
             # Delete UIOs
             await session.execute(
                 text("DELETE FROM uios WHERE organization_id = :org_id"),
@@ -1804,6 +1834,20 @@ async def _delete_org_data_background(org_id: str, job_id: str) -> None:
             )
 
             await session.commit()
+
+        # Delete filesystem-backed evidence/lakehouse tenant slices.
+        settings = get_settings()
+        candidate_paths = [
+            Path(settings.lakehouse_storage_path).expanduser() / org_id,
+            Path(settings.evidence_storage_path).expanduser() / "raw_observations" / org_id,
+            Path(settings.evidence_storage_path).expanduser() / "crawl" / org_id,
+        ]
+        for path in candidate_paths:
+            try:
+                if path.exists():
+                    shutil.rmtree(path, ignore_errors=True)
+            except Exception as exc:
+                logger.warning("Failed to remove tenant storage path", org_id=org_id, path=str(path), error=str(exc))
 
         # Delete graph nodes
         try:
@@ -1877,11 +1921,21 @@ async def delete_org_data(
             text("SELECT COUNT(*) FROM connections WHERE organization_id = :org_id"),
             {"org_id": token.org_id},
         )
+        observations_count = await session.execute(
+            text("SELECT COUNT(*) FROM observation WHERE organization_id = :org_id"),
+            {"org_id": token.org_id},
+        )
+        lakehouse_partitions_count = await session.execute(
+            text("SELECT COUNT(*) FROM lakehouse_partition WHERE organization_id = :org_id"),
+            {"org_id": token.org_id},
+        )
 
         items_to_delete = {
             "uios": uio_count.scalar() or 0,
             "evidence": evidence_count.scalar() or 0,
             "connections": connections_count.scalar() or 0,
+            "observations": observations_count.scalar() or 0,
+            "lakehouse_partitions": lakehouse_partitions_count.scalar() or 0,
         }
 
     # Create deletion job
@@ -1935,7 +1989,7 @@ class ExportRequest(BaseModel):
 
     format: Literal["json", "csv", "neo4j"] = Field(default="json")
     include: list[str] = Field(
-        default=["uios", "evidence", "graph", "connections"],
+        default=["uios", "evidence", "graph", "connections", "observations", "lakehouse"],
         description="What to include in export",
     )
 
@@ -1969,6 +2023,8 @@ async def export_org_data(
     - evidence: Source evidence and citations
     - graph: Knowledge graph nodes and relationships
     - connections: Connection configurations (tokens excluded)
+    - observations: Normalized world observation objects and evidence links
+    - lakehouse: Lakehouse partition/checkpoint/cost metadata
     - audit_log: Activity audit log
 
     The export is processed asynchronously. Poll the job status
@@ -2119,6 +2175,41 @@ async def _export_org_data_background(
                 )
                 rows = result.fetchall()
                 export_data["connections"] = [dict(row._mapping) for row in rows]
+                progress += step
+                await _update_export_progress(redis_client, job_id, progress)
+
+            if "observations" in include:
+                obs_rows = await session.execute(
+                    text("SELECT * FROM observation WHERE organization_id = :org_id"),
+                    {"org_id": org_id},
+                )
+                link_rows = await session.execute(
+                    text("SELECT * FROM observation_evidence_link WHERE organization_id = :org_id"),
+                    {"org_id": org_id},
+                )
+                export_data["observations"] = [dict(row._mapping) for row in obs_rows.fetchall()]
+                export_data["observation_evidence_links"] = [dict(row._mapping) for row in link_rows.fetchall()]
+                progress += step
+                await _update_export_progress(redis_client, job_id, progress)
+
+            if "lakehouse" in include:
+                partition_rows = await session.execute(
+                    text("SELECT * FROM lakehouse_partition WHERE organization_id = :org_id"),
+                    {"org_id": org_id},
+                )
+                checkpoint_rows = await session.execute(
+                    text("SELECT * FROM lakehouse_checkpoint WHERE organization_id = :org_id"),
+                    {"org_id": org_id},
+                )
+                cost_rows = await session.execute(
+                    text("SELECT * FROM lakehouse_cost_attribution WHERE organization_id = :org_id"),
+                    {"org_id": org_id},
+                )
+                export_data["lakehouse"] = {
+                    "partitions": [dict(row._mapping) for row in partition_rows.fetchall()],
+                    "checkpoints": [dict(row._mapping) for row in checkpoint_rows.fetchall()],
+                    "cost_attribution": [dict(row._mapping) for row in cost_rows.fetchall()],
+                }
                 progress += step
                 await _update_export_progress(redis_client, job_id, progress)
 

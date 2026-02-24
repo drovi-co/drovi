@@ -15,6 +15,13 @@ from .break_glass import (
     validate_break_glass_token,
 )
 from .policy_engine import AccessDecision, evaluate_evidence_access
+from .cognitive_access import redact_payload, require_cognitive_access
+from .cognitive_payload_crypto import (
+    decode_reason_payload,
+    decrypt_payload_envelope,
+    encode_reason_payload,
+    encrypt_payload_envelope,
+)
 
 __all__ = [
     "OrgSecurityPolicy",
@@ -29,4 +36,10 @@ __all__ = [
     "validate_break_glass_token",
     "AccessDecision",
     "evaluate_evidence_access",
+    "require_cognitive_access",
+    "redact_payload",
+    "encode_reason_payload",
+    "decode_reason_payload",
+    "encrypt_payload_envelope",
+    "decrypt_payload_envelope",
 ]

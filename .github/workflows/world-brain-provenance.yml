@@ -1,0 +1,59 @@
+name: world-brain-provenance
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, staging, develop]
+    paths:
+      - "drovi-intelligence/contracts/events/world_brain/**"
+      - "drovi-intelligence/openapi/**"
+      - "drovi-intelligence/alembic/versions/067_world_brain_phase1_foundation.py"
+      - "drovi-intelligence/alembic/versions/068_source_sync_run_ledger.py"
+      - "drovi-intelligence/alembic/versions/069_world_crawl_fabric.py"
+      - "drovi-intelligence/alembic/versions/070_lakehouse_platform.py"
+      - "drovi-intelligence/scripts/generate_world_brain_provenance.py"
+      - ".github/workflows/world-brain-provenance.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate provenance manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          python drovi-intelligence/scripts/generate_world_brain_provenance.py > dist/world-brain-provenance.json
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3.7.0
+
+      - name: Sign provenance manifest (keyless)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cosign sign-blob --yes \
+            --output-signature dist/world-brain-provenance.sig \
+            --output-certificate dist/world-brain-provenance.pem \
+            dist/world-brain-provenance.json
+
+      - name: Upload provenance artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-brain-provenance
+          path: |
+            dist/world-brain-provenance.json
+            dist/world-brain-provenance.sig
+            dist/world-brain-provenance.pem

@@ -11,6 +11,11 @@ from src.db import client as db_client
 from src.db.rls import rls_context
 from src.jobs.queue import EnqueueJobRequest, enqueue_job, get_job_snapshot
 from src.kernel.time import parse_iso8601
+from src.connectors.scheduling.cadence_registry import (
+    compute_cadence_decision,
+    is_world_source_connector,
+    resolve_freshness_slo_minutes,
+)
 
 logger = structlog.get_logger()
 
@@ -77,6 +82,7 @@ async def list_active_connections(req: dict[str, Any] | None = None) -> list[dic
     req = req or {}
     limit = int(req.get("limit") or 5000)
     limit = max(1, min(limit, 50_000))
+    default_sync_slo = int(req.get("default_sync_slo_minutes") or 60)
 
     with rls_context(None, is_internal=True):
         pool = await db_client.get_db_pool()
@@ -87,7 +93,9 @@ async def list_active_connections(req: dict[str, Any] | None = None) -> list[dic
                     id::text as id,
                     organization_id,
                     connector_type,
-                    sync_frequency_minutes
+                    sync_frequency_minutes,
+                    last_sync_at,
+                    config
                 FROM connections
                 WHERE sync_enabled = TRUE
                   AND status IN ('active', 'connected')
@@ -97,12 +105,75 @@ async def list_active_connections(req: dict[str, Any] | None = None) -> list[dic
                 limit,
             )
 
-    return [
-        {
-            "connection_id": str(r["id"]),
-            "organization_id": str(r["organization_id"]),
-            "connector_type": str(r["connector_type"]),
-            "sync_frequency_minutes": int(r["sync_frequency_minutes"] or 0),
-        }
-        for r in (rows or [])
-    ]
+    payload: list[dict[str, Any]] = []
+    for row in rows or []:
+        row_data = dict(row)
+        connector_type = str(row_data.get("connector_type") or "")
+        provider_config = row_data.get("config") if isinstance(row_data.get("config"), dict) else {}
+        source_settings = (
+            provider_config.get("settings")
+            if isinstance(provider_config.get("settings"), dict)
+            else {}
+        )
+
+        base_interval = int(row_data.get("sync_frequency_minutes") or 0)
+        if base_interval <= 0:
+            base_interval = 15
+
+        quota_headroom_ratio = None
+        if source_settings.get("quota_headroom_ratio") is not None:
+            try:
+                quota_headroom_ratio = float(source_settings.get("quota_headroom_ratio"))
+            except Exception:
+                quota_headroom_ratio = None
+
+        voi_priority = None
+        if source_settings.get("voi_priority") is not None:
+            try:
+                voi_priority = float(source_settings.get("voi_priority"))
+            except Exception:
+                voi_priority = None
+
+        is_world_source = is_world_source_connector(connector_type)
+        if is_world_source:
+            freshness_slo_minutes = resolve_freshness_slo_minutes(
+                connector_type,
+                fallback=default_sync_slo,
+            )
+            cadence = compute_cadence_decision(
+                connector_type=connector_type,
+                last_sync_at=row_data.get("last_sync_at"),
+                default_interval_minutes=base_interval,
+                freshness_slo_minutes=freshness_slo_minutes,
+                quota_headroom_ratio=quota_headroom_ratio,
+                voi_priority=voi_priority,
+            )
+            interval_minutes = cadence.interval_minutes
+            sync_job_type = "continuous"
+            catchup_mode = cadence.catchup_mode
+            cadence_reasons = list(cadence.reason_codes)
+            freshness_lag_minutes = cadence.freshness_lag_minutes
+        else:
+            interval_minutes = base_interval
+            sync_job_type = "scheduled"
+            catchup_mode = False
+            cadence_reasons = ["legacy_schedule"]
+            freshness_lag_minutes = None
+
+        payload.append(
+            {
+                "connection_id": str(row_data.get("id")),
+                "organization_id": str(row_data.get("organization_id")),
+                "connector_type": connector_type,
+                "sync_frequency_minutes": int(row_data.get("sync_frequency_minutes") or 0),
+                "scheduled_interval_minutes": int(interval_minutes),
+                "sync_job_type": sync_job_type,
+                "catchup_mode": bool(catchup_mode),
+                "cadence_reasons": cadence_reasons,
+                "freshness_lag_minutes": freshness_lag_minutes,
+                "quota_headroom_ratio": quota_headroom_ratio,
+                "voi_priority": voi_priority,
+            }
+        )
+
+    return payload

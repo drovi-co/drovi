@@ -21,6 +21,10 @@ from src.db.client import get_db_session
 from src.db.rls import set_rls_context
 from src.graph.client import get_graph_client
 from src.memory.drovi_memory import DroviMemory
+from src.memory.world_brain import (
+    WorldBrainDryRunInput,
+    WorldBrainDryRunPipeline,
+)
 from src.kernel.time import utc_now_naive
 
 logger = structlog.get_logger()
@@ -141,6 +145,12 @@ class MemoryService:
     def __init__(self, organization_id: str, backend: FalkorMemoryBackend) -> None:
         self.organization_id = organization_id
         self._backend = backend
+        self._world_brain_pipeline: WorldBrainDryRunPipeline | None = None
+
+    def _get_world_brain_pipeline(self) -> WorldBrainDryRunPipeline:
+        if self._world_brain_pipeline is None:
+            self._world_brain_pipeline = WorldBrainDryRunPipeline()
+        return self._world_brain_pipeline
 
     # ---------------------------------------------------------------------
     # Graph access (used by GraphRAG + other services)
@@ -217,6 +227,48 @@ class MemoryService:
 
     async def get_recent_episodes(self, limit: int = 50, source_types: list[str] | None = None) -> list[dict[str, Any]]:
         return await self._backend.get_recent_episodes(limit=limit, source_types=source_types)
+
+    async def run_world_brain_dry_run(
+        self,
+        *,
+        internal_objects: list[dict[str, Any]] | None = None,
+        external_events: list[dict[str, Any]] | None = None,
+        strategic_context: dict[str, Any] | None = None,
+        as_of: datetime | None = None,
+    ) -> dict[str, Any]:
+        """
+        Execute the phase-3 multi-memory substrate in dry-run mode.
+
+        This composes world-model, epistemics, hypothesis, causal, normative,
+        attention, intervention, and learning layers without side effects.
+        """
+        if internal_objects is None:
+            internal_objects = await self.get_recent_uios(limit=250, days=180)
+        pipeline = self._get_world_brain_pipeline()
+        request = WorldBrainDryRunInput(
+            organization_id=self.organization_id,
+            internal_objects=internal_objects,
+            external_events=external_events or [],
+            strategic_context=strategic_context or {},
+            as_of=as_of,
+        )
+        return pipeline.execute(request)
+
+    async def compile_world_brain_context(
+        self,
+        *,
+        external_events: list[dict[str, Any]] | None = None,
+        strategic_context: dict[str, Any] | None = None,
+        as_of: datetime | None = None,
+    ) -> dict[str, Any]:
+        """
+        Convenience alias used by downstream components to build world context.
+        """
+        return await self.run_world_brain_dry_run(
+            external_events=external_events,
+            strategic_context=strategic_context,
+            as_of=as_of,
+        )
 
     # ---------------------------------------------------------------------
     # UIO-centric memory APIs (bi-temporal + trails)

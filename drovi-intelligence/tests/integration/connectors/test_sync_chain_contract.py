@@ -137,3 +137,10 @@ async def test_sync_pipeline_contract_invokes_intelligence_chain(
 
     assert any(upsert.get("status") == "syncing" for upsert in fake_state_repo.upserts)
     assert any(upsert.get("status") == "completed" for upsert in fake_state_repo.upserts)
+    checkpointed = [upsert for upsert in fake_state_repo.upserts if "cursor_state" in upsert]
+    assert checkpointed
+    assert all("_checkpoint_contract" in (upsert["cursor_state"] or {}) for upsert in checkpointed)
+    assert all(
+        (upsert["cursor_state"] or {}).get("_checkpoint_contract", {}).get("run_id") == sync_job.job_id
+        for upsert in checkpointed
+    )

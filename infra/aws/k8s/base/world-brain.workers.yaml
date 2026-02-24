@@ -1,0 +1,310 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: world-brain-critical-priority
+value: 100000
+globalDefault: false
+description: "Priority class for world-brain critical risk/compliance workloads."
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: world-brain-standard-priority
+value: 10000
+globalDefault: false
+description: "Priority class for world-brain standard workloads."
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drovi-world-normalize-worker
+  namespace: drovi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: drovi-world-normalize-worker
+      world-brain-pool: normalize
+  template:
+    metadata:
+      labels:
+        app: drovi-world-normalize-worker
+        world-brain-pool: normalize
+    spec:
+      priorityClassName: world-brain-standard-priority
+      serviceAccountName: drovi-intelligence-sa
+      containers:
+        - name: normalize-worker
+          image: REPLACE_ECR_DROVI_INTELLIGENCE:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "src.streaming.worker"]
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          env:
+            - name: KAFKA_CONSUMER_GROUP_ID
+              value: "drovi-world-normalize-worker"
+            - name: KAFKA_TOPIC_PRIORITIES
+              value: '{"raw.connector.events":0,"normalized.records":0,"intelligence.pipeline.input":2,"drovi-intelligence":3,"graph.changes":4}'
+            - name: PROMETHEUS_METRICS_PORT
+              value: "9111"
+          resources:
+            requests:
+              cpu: "300m"
+              memory: "768Mi"
+            limits:
+              cpu: "1500m"
+              memory: "2Gi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drovi-world-graph-worker
+  namespace: drovi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: drovi-world-graph-worker
+      world-brain-pool: graph
+  template:
+    metadata:
+      labels:
+        app: drovi-world-graph-worker
+        world-brain-pool: graph
+    spec:
+      priorityClassName: world-brain-standard-priority
+      serviceAccountName: drovi-intelligence-sa
+      containers:
+        - name: graph-worker
+          image: REPLACE_ECR_DROVI_INTELLIGENCE:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "src.streaming.worker"]
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          env:
+            - name: KAFKA_CONSUMER_GROUP_ID
+              value: "drovi-world-graph-worker"
+            - name: KAFKA_TOPIC_PRIORITIES
+              value: '{"raw.connector.events":2,"normalized.records":1,"intelligence.pipeline.input":0,"drovi-intelligence":0,"graph.changes":0}'
+            - name: PROMETHEUS_METRICS_PORT
+              value: "9112"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "3Gi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drovi-world-ml-worker
+  namespace: drovi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: drovi-world-ml-worker
+      world-brain-pool: ml
+  template:
+    metadata:
+      labels:
+        app: drovi-world-ml-worker
+        world-brain-pool: ml
+    spec:
+      priorityClassName: world-brain-standard-priority
+      serviceAccountName: drovi-intelligence-sa
+      containers:
+        - name: ml-worker
+          image: REPLACE_ECR_DROVI_INTELLIGENCE:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "src.jobs.worker"]
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: drovi-secrets
+                  key: DROVI_DATABASE_URL
+            - name: JOB_WORKER_ALLOWED_JOB_TYPES
+              value: '["learning.feedback.ingest","learning.recalibrate","mlops.shadow.evaluate","mlops.canary.evaluate","hypothesis.generate","hypothesis.rescore"]'
+            - name: PROMETHEUS_METRICS_PORT
+              value: "9113"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2500m"
+              memory: "4Gi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drovi-world-simulation-worker
+  namespace: drovi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: drovi-world-simulation-worker
+      world-brain-pool: simulation
+  template:
+    metadata:
+      labels:
+        app: drovi-world-simulation-worker
+        world-brain-pool: simulation
+    spec:
+      priorityClassName: world-brain-standard-priority
+      serviceAccountName: drovi-intelligence-sa
+      containers:
+        - name: simulation-worker
+          image: REPLACE_ECR_DROVI_INTELLIGENCE:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "src.jobs.worker"]
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: drovi-secrets
+                  key: DROVI_DATABASE_URL
+            - name: JOB_WORKER_ALLOWED_JOB_TYPES
+              value: '["simulation.run","intervention.propose","intervention.outcome.capture"]'
+            - name: PROMETHEUS_METRICS_PORT
+              value: "9114"
+          resources:
+            requests:
+              cpu: "400m"
+              memory: "768Mi"
+            limits:
+              cpu: "1800m"
+              memory: "3Gi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drovi-world-critical-worker
+  namespace: drovi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: drovi-world-critical-worker
+      world-brain-pool: critical
+  template:
+    metadata:
+      labels:
+        app: drovi-world-critical-worker
+        world-brain-pool: critical
+    spec:
+      priorityClassName: world-brain-critical-priority
+      serviceAccountName: drovi-intelligence-sa
+      containers:
+        - name: critical-worker
+          image: REPLACE_ECR_DROVI_INTELLIGENCE:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "src.jobs.worker"]
+          envFrom:
+            - configMapRef:
+                name: drovi-config
+            - secretRef:
+                name: drovi-secrets
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: drovi-secrets
+                  key: DROVI_DATABASE_URL
+            - name: JOB_WORKER_ALLOWED_JOB_TYPES
+              value: '["connector.sync","connectors.health_monitor","impact.compute","normative.sentinel","world_twin.snapshot","world_twin.stream_update","world_twin.prematerialize"]'
+            - name: PROMETHEUS_METRICS_PORT
+              value: "9115"
+          resources:
+            requests:
+              cpu: "700m"
+              memory: "1Gi"
+            limits:
+              cpu: "3000m"
+              memory: "4Gi"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: world-brain-maintenance-fast
+  namespace: drovi
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: drovi-intelligence-sa
+          restartPolicy: OnFailure
+          containers:
+            - name: enqueue-maintenance-fast
+              image: REPLACE_ECR_DROVI_INTELLIGENCE:latest
+              imagePullPolicy: IfNotPresent
+              command: ["python", "scripts/enqueue_world_brain_maintenance.py", "--profile", "fast"]
+              envFrom:
+                - configMapRef:
+                    name: drovi-config
+                - secretRef:
+                    name: drovi-secrets
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: drovi-secrets
+                      key: DROVI_DATABASE_URL
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: world-brain-maintenance-hourly
+  namespace: drovi
+spec:
+  schedule: "15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: drovi-intelligence-sa
+          restartPolicy: OnFailure
+          containers:
+            - name: enqueue-maintenance-hourly
+              image: REPLACE_ECR_DROVI_INTELLIGENCE:latest
+              imagePullPolicy: IfNotPresent
+              command: ["python", "scripts/enqueue_world_brain_maintenance.py", "--profile", "hourly"]
+              envFrom:
+                - configMapRef:
+                    name: drovi-config
+                - secretRef:
+                    name: drovi-secrets
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: drovi-secrets
+                      key: DROVI_DATABASE_URL

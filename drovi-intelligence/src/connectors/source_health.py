@@ -11,6 +11,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from src.connectors.degradation import DegradationMode
+
 
 class SourceHealthStatus(str, Enum):
     HEALTHY = "healthy"
@@ -27,6 +29,7 @@ class SourceHealthReason(str, Enum):
     NEVER_SYNCED = "never_synced"
     STALE_SYNC = "stale_sync"
     RATE_LIMITED = "rate_limited"
+    PROVIDER_OUTAGE = "provider_outage"
     RECENT_FAILURES = "recent_failures"
     RECOVERY_IN_FLIGHT = "recovery_in_flight"
 
@@ -45,6 +48,7 @@ class SourceHealthSnapshot(BaseModel):
     sync_slo_minutes: int
     recent_failures: int = 0
     recovery_action: str = "none"
+    degradation_mode: str = DegradationMode.NORMAL.value
     last_error: str | None = None
     checked_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -97,6 +101,7 @@ def evaluate_source_health(
     stale_floor_minutes: int = 15,
     sync_slo_minutes: int = 60,
     failure_threshold: int = 2,
+    provider_circuit_open: bool = False,
 ) -> SourceHealthSnapshot:
     """Evaluate source health using deterministic policy rules."""
     now_utc = _as_utc(now) or datetime.now(timezone.utc)
@@ -111,6 +116,26 @@ def evaluate_source_health(
     sync_slo_breached = (
         minutes_since_last_sync is not None and minutes_since_last_sync > sync_slo_minutes_safe
     )
+
+    if provider_circuit_open:
+        return SourceHealthSnapshot(
+            connection_id=connection_id,
+            organization_id=organization_id,
+            connector_type=connector_type,
+            status=SourceHealthStatus.DEGRADED,
+            reason_code=SourceHealthReason.PROVIDER_OUTAGE,
+            reason="Provider circuit breaker is open; sync degraded until recovery window elapses.",
+            last_sync_at=last_sync_utc,
+            minutes_since_last_sync=minutes_since_last_sync,
+            stale_after_minutes=stale_after_minutes,
+            sync_slo_breached=sync_slo_breached,
+            sync_slo_minutes=sync_slo_minutes_safe,
+            recent_failures=recent_failures,
+            recovery_action="wait",
+            degradation_mode=DegradationMode.PROVIDER_OUTAGE.value,
+            last_error=last_error,
+            checked_at=now_utc,
+        )
 
     if not sync_enabled:
         return SourceHealthSnapshot(
@@ -127,6 +152,7 @@ def evaluate_source_health(
             sync_slo_minutes=sync_slo_minutes_safe,
             recent_failures=recent_failures,
             recovery_action="enable_sync",
+            degradation_mode=DegradationMode.PARTIAL_SIGNAL.value,
             last_error=last_error,
             checked_at=now_utc,
         )
@@ -146,6 +172,7 @@ def evaluate_source_health(
             sync_slo_minutes=sync_slo_minutes_safe,
             recent_failures=recent_failures,
             recovery_action="reconnect",
+            degradation_mode=DegradationMode.PARTIAL_SIGNAL.value,
             last_error=last_error,
             checked_at=now_utc,
         )
@@ -165,6 +192,7 @@ def evaluate_source_health(
             sync_slo_minutes=sync_slo_minutes_safe,
             recent_failures=recent_failures,
             recovery_action="wait",
+            degradation_mode=DegradationMode.PARTIAL_SIGNAL.value,
             last_error=last_error,
             checked_at=now_utc,
         )
@@ -184,6 +212,7 @@ def evaluate_source_health(
             sync_slo_minutes=sync_slo_minutes_safe,
             recent_failures=recent_failures,
             recovery_action="wait",
+            degradation_mode=DegradationMode.QUOTA_PRESSURE.value,
             last_error=last_error,
             checked_at=now_utc,
         )
@@ -203,6 +232,7 @@ def evaluate_source_health(
             sync_slo_minutes=sync_slo_minutes_safe,
             recent_failures=recent_failures,
             recovery_action="retry_sync",
+            degradation_mode=DegradationMode.PARTIAL_SIGNAL.value,
             last_error=last_error,
             checked_at=now_utc,
         )
@@ -222,6 +252,7 @@ def evaluate_source_health(
             sync_slo_minutes=sync_slo_minutes_safe,
             recent_failures=recent_failures,
             recovery_action="retry_sync",
+            degradation_mode=DegradationMode.LAG_BACKPRESSURE.value,
             last_error=last_error,
             checked_at=now_utc,
         )
@@ -244,6 +275,7 @@ def evaluate_source_health(
             sync_slo_minutes=sync_slo_minutes_safe,
             recent_failures=recent_failures,
             recovery_action="retry_sync",
+            degradation_mode=DegradationMode.LAG_BACKPRESSURE.value,
             last_error=last_error,
             checked_at=now_utc,
         )
@@ -262,6 +294,7 @@ def evaluate_source_health(
         sync_slo_minutes=sync_slo_minutes_safe,
         recent_failures=recent_failures,
         recovery_action="none",
+        degradation_mode=DegradationMode.NORMAL.value,
         last_error=last_error,
         checked_at=now_utc,
     )

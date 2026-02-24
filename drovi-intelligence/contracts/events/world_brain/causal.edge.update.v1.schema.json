@@ -1,0 +1,105 @@
+{
+  "$defs": {
+    "CausalEdgeUpdatePayload": {
+      "properties": {
+        "direction": {
+          "title": "Direction",
+          "type": "string"
+        },
+        "edge_id": {
+          "title": "Edge Id",
+          "type": "string"
+        },
+        "from_ref": {
+          "title": "From Ref",
+          "type": "string"
+        },
+        "mechanism_summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mechanism Summary"
+        },
+        "relation_type": {
+          "title": "Relation Type",
+          "type": "string"
+        },
+        "strength": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Strength",
+          "type": "number"
+        },
+        "to_ref": {
+          "title": "To Ref",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "edge_id",
+        "from_ref",
+        "to_ref",
+        "relation_type",
+        "strength",
+        "direction",
+        "updated_at"
+      ],
+      "title": "CausalEdgeUpdatePayload",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "const": "causal.edge.update.v1",
+      "default": "causal.edge.update.v1",
+      "title": "Event Type",
+      "type": "string"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "organization_id": {
+      "title": "Organization Id",
+      "type": "string"
+    },
+    "payload": {
+      "$ref": "#/$defs/CausalEdgeUpdatePayload"
+    },
+    "producer": {
+      "default": "drovi-intelligence",
+      "title": "Producer",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "organization_id",
+    "event_id",
+    "occurred_at",
+    "payload"
+  ],
+  "title": "CausalEdgeUpdateEvent",
+  "type": "object"
+}

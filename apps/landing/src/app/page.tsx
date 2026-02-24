@@ -13,6 +13,8 @@ import { Navigation } from "@/components/landing/navigation";
 import { Pricing } from "@/components/landing/pricing";
 import { ProblemSolution } from "@/components/landing/problem-solution";
 import { Testimonial } from "@/components/landing/testimonial";
+import { WorldBrainCapabilities } from "@/components/landing/world-brain-capabilities";
+import { WorldBrainSignal } from "@/components/landing/world-brain-signal";
 import { WaitlistDialog } from "@/components/waitlist/waitlist-dialog";
 
 export default function LandingPage() {
@@ -42,8 +44,14 @@ export default function LandingPage() {
       {/* Problem/Solution Section */}
       <ProblemSolution />
 
+      {/* New: World Brain Signal Section */}
+      <WorldBrainSignal onRequestAccess={handleRequestAccess} />
+
       {/* How It Works */}
       <HowItWorks />
+
+      {/* New: World Brain Capabilities */}
+      <WorldBrainCapabilities />
 
       {/* 8 AI Agents */}
       <Agents />

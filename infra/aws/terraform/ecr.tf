@@ -6,6 +6,10 @@ module "data" {
   vpc_cidr_block     = module.network.vpc_cidr_block
   private_subnet_ids = module.network.private_subnet_ids
   production_mode    = var.environment == "production"
+  trusted_security_group_ids = distinct(concat(
+    compact([module.eks.node_security_group_id]),
+    var.trusted_data_plane_security_group_ids
+  ))
 
   db_instance_class        = var.db_instance_class
   db_allocated_storage     = var.db_allocated_storage
@@ -28,10 +32,18 @@ module "data" {
   msk_scram_username       = var.msk_scram_username
   msk_scram_password       = local.msk_scram_password
 
-  evidence_bucket_name            = local.evidence_bucket_name
-  s3_object_lock_enabled          = var.s3_object_lock_enabled
-  evidence_default_retention_days = var.evidence_default_retention_days
-  web_cors_origins                = var.web_cors_origins
+  evidence_bucket_name               = local.evidence_bucket_name
+  lakehouse_bucket_name              = local.lakehouse_bucket_name
+  s3_object_lock_enabled             = var.s3_object_lock_enabled
+  evidence_default_retention_days    = var.evidence_default_retention_days
+  lakehouse_hot_retention_days       = var.lakehouse_hot_retention_days
+  lakehouse_warm_retention_days      = var.lakehouse_warm_retention_days
+  lakehouse_cold_retention_days      = var.lakehouse_cold_retention_days
+  enable_glue_schema_registry        = var.enable_glue_schema_registry
+  glue_schema_registry_name          = var.glue_schema_registry_name
+  enable_world_brain_managed_secrets = var.enable_world_brain_managed_secrets
+  world_brain_managed_secret_names   = var.world_brain_managed_secret_names
+  web_cors_origins                   = var.web_cors_origins
 
   ecr_repositories         = local.ecr_repositories
   ecr_lifecycle_max_images = var.ecr_lifecycle_max_images

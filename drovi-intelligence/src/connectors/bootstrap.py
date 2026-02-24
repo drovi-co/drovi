@@ -52,6 +52,15 @@ def ensure_connectors_registered() -> None:
         "src.connectors.sources.databases.mongodb",
         # Files
         "src.connectors.sources.files.documents",
+        # World/public sources
+        "src.connectors.sources.world.sec_edgar",
+        "src.connectors.sources.world.federal_register",
+        "src.connectors.sources.world.fred",
+        "src.connectors.sources.world.crossref",
+        "src.connectors.sources.world.cisa_kev",
+        "src.connectors.sources.world.commercial_premium",
+        "src.connectors.sources.world.rss_osint",
+        "src.connectors.sources.world.worldnewsapi",
     )
 
     failures: list[str] = []

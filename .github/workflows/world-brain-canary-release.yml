@@ -1,0 +1,88 @@
+name: world-brain-canary-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment_name:
+        description: "Target environment"
+        required: true
+        type: choice
+        default: staging
+        options:
+          - staging
+          - production
+      image_tag:
+        description: "drovi-intelligence image tag (defaults to current commit SHA)"
+        required: false
+        type: string
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment_name }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Update kubeconfig
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+        run: aws eks update-kubeconfig --region "$AWS_REGION" --name "$EKS_CLUSTER_NAME"
+
+      - name: Canary rollout world-brain worker pools
+        shell: bash
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY_PREFIX: ${{ vars.ECR_REPOSITORY_PREFIX }}
+          IMAGE_TAG: ${{ inputs.image_tag != '' && inputs.image_tag || github.sha }}
+        run: |
+          set -euo pipefail
+          image="${ECR_REGISTRY}/${ECR_REPOSITORY_PREFIX}/drovi-intelligence:${IMAGE_TAG}"
+          echo "Canary image: ${image}"
+
+          deployments=(
+            drovi-world-normalize-worker
+            drovi-world-graph-worker
+            drovi-world-ml-worker
+            drovi-world-simulation-worker
+            drovi-world-critical-worker
+          )
+
+          changed=()
+          rollback() {
+            echo "Canary failed. Rolling back updated world-brain deployments..."
+            for dep in "${changed[@]}"; do
+              kubectl -n drovi rollout undo "deployment/${dep}" || true
+            done
+            for dep in "${changed[@]}"; do
+              kubectl -n drovi rollout status "deployment/${dep}" --timeout=5m || true
+            done
+          }
+          trap rollback ERR
+
+          for dep in "${deployments[@]}"; do
+            container="$(kubectl -n drovi get deployment "${dep}" -o jsonpath='{.spec.template.spec.containers[0].name}')"
+            kubectl -n drovi set image "deployment/${dep}" "${container}=${image}"
+            changed+=("${dep}")
+            kubectl -n drovi rollout status "deployment/${dep}" --timeout=10m
+          done
+
+          trap - ERR
+          echo "World-brain canary rollout completed successfully."

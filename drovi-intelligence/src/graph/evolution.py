@@ -11,7 +11,7 @@ From the pitch: "Bi-temporal (what was true vs what is now)"
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -88,7 +88,7 @@ class MemoryEvolution:
         Returns:
             EvolutionResult with success status
         """
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(UTC).isoformat()
 
         try:
             # Update old node
@@ -177,7 +177,7 @@ class MemoryEvolution:
         Returns:
             EvolutionResult
         """
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(UTC).isoformat()
 
         try:
             # Create CONTRADICTS relationship (bidirectional)
@@ -245,7 +245,7 @@ class MemoryEvolution:
         Returns:
             True if successful
         """
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(UTC).isoformat()
 
         try:
             await self.graph.query(
@@ -281,7 +281,7 @@ class MemoryEvolution:
         if not accesses:
             return 0
 
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(UTC).isoformat()
         success_count = 0
 
         # Group by node type for efficient queries
@@ -641,6 +641,154 @@ class MemoryEvolution:
                 "Failed to merge entities",
                 source_ids=source_ids,
                 target_id=target_id,
+                error=str(e),
+            )
+            return EvolutionResult(success=False, error=str(e))
+
+    async def upsert_causal_edge(
+        self,
+        *,
+        source_ref: str,
+        target_ref: str,
+        sign: int = 1,
+        strength: float = 0.5,
+        lag_hours: float = 24.0,
+        confidence: float = 0.5,
+        mechanism_summary: str | None = None,
+        evidence_refs: list[str] | None = None,
+        organization_id: str | None = None,
+    ) -> EvolutionResult:
+        """
+        Create or update a causal edge between two graph nodes.
+
+        This extends graph evolution with explicit causal memory updates.
+        """
+        now = datetime.now(UTC).isoformat()
+        params: dict[str, Any] = {
+            "sourceRef": source_ref,
+            "targetRef": target_ref,
+            "sign": -1 if sign < 0 else 1,
+            "strength": max(0.0, min(float(strength), 1.0)),
+            "lagHours": max(0.0, float(lag_hours)),
+            "confidence": max(0.0, min(float(confidence), 1.0)),
+            "mechanismSummary": mechanism_summary,
+            "evidenceRefs": evidence_refs or [],
+            "now": now,
+        }
+        org_filter = ""
+        if organization_id:
+            org_filter = "AND source.organizationId = $orgId AND target.organizationId = $orgId"
+            params["orgId"] = organization_id
+
+        try:
+            await self.graph.query(
+                f"""
+                MATCH (source {{id: $sourceRef}})
+                MATCH (target {{id: $targetRef}})
+                WHERE 1 = 1
+                {org_filter}
+                MERGE (source)-[r:CAUSES]->(target)
+                SET r.sign = $sign,
+                    r.strength = $strength,
+                    r.lagHours = $lagHours,
+                    r.confidence = $confidence,
+                    r.mechanismSummary = $mechanismSummary,
+                    r.evidenceRefs = $evidenceRefs,
+                    r.updatedAt = $now
+                """,
+                params,
+            )
+            logger.info(
+                "Causal edge upserted",
+                source_ref=source_ref,
+                target_ref=target_ref,
+                sign=params["sign"],
+                strength=params["strength"],
+                confidence=params["confidence"],
+            )
+            return EvolutionResult(
+                success=True,
+                old_node_id=source_ref,
+                new_node_id=target_ref,
+                reason=SupersessionReason.UPDATED,
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to upsert causal edge",
+                source_ref=source_ref,
+                target_ref=target_ref,
+                error=str(e),
+            )
+            return EvolutionResult(success=False, error=str(e))
+
+    async def create_impact_bridge(
+        self,
+        *,
+        external_ref: str,
+        internal_ref: str,
+        impact_type: str,
+        severity: str = "medium",
+        confidence: float = 0.5,
+        evidence_refs: list[str] | None = None,
+        organization_id: str | None = None,
+    ) -> EvolutionResult:
+        """
+        Link external and internal nodes with an impact bridge.
+
+        Impact bridges are the key edge class connecting outside-world deltas
+        to internal exposure.
+        """
+        now = datetime.now(UTC).isoformat()
+        params: dict[str, Any] = {
+            "externalRef": external_ref,
+            "internalRef": internal_ref,
+            "impactType": impact_type,
+            "severity": severity.lower(),
+            "confidence": max(0.0, min(float(confidence), 1.0)),
+            "evidenceRefs": evidence_refs or [],
+            "now": now,
+        }
+        org_filter = ""
+        if organization_id:
+            org_filter = "AND external.organizationId = $orgId AND internal.organizationId = $orgId"
+            params["orgId"] = organization_id
+
+        try:
+            await self.graph.query(
+                f"""
+                MATCH (external {{id: $externalRef}})
+                MATCH (internal {{id: $internalRef}})
+                WHERE 1 = 1
+                {org_filter}
+                MERGE (external)-[r:IMPACTS]->(internal)
+                SET r.bridgeType = "external_internal",
+                    r.impactType = $impactType,
+                    r.severity = $severity,
+                    r.confidence = $confidence,
+                    r.evidenceRefs = $evidenceRefs,
+                    r.updatedAt = $now
+                """,
+                params,
+            )
+            logger.info(
+                "Impact bridge created",
+                external_ref=external_ref,
+                internal_ref=internal_ref,
+                impact_type=impact_type,
+                severity=severity,
+                confidence=params["confidence"],
+            )
+            return EvolutionResult(
+                success=True,
+                old_node_id=external_ref,
+                new_node_id=internal_ref,
+                reason=SupersessionReason.UPDATED,
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to create impact bridge",
+                external_ref=external_ref,
+                internal_ref=internal_ref,
                 error=str(e),
             )
             return EvolutionResult(success=False, error=str(e))

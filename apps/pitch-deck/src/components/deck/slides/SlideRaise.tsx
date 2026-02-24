@@ -3,6 +3,7 @@ import SlideLayout from "../SlideLayout";
 
 const uses = [
   "Harden ledger core",
+  "Scale world-brain ingest and causality infrastructure",
   "Expand vertical intelligence packs",
   "Ship AgentOS control plane",
   "Hire senior infra engineer",

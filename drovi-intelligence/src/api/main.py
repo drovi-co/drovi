@@ -40,11 +40,14 @@ from src.api.routes import (
     api_keys,
     ask,
     auth,
+    brain,
     brief,
+    crawl,
     content,
     documents,
     changes,
     jobs,
+    lakehouse,
     connections,
     console,
     contacts,
@@ -280,6 +283,8 @@ app.mount("/metrics", metrics_app)
 app.include_router(health.router, tags=["Health"])
 app.include_router(agents.router, prefix="/api/v1", tags=["Agents"])
 app.include_router(brief.router, prefix="/api/v1", tags=["Brief"])
+app.include_router(brain.router, prefix="/api/v1", tags=["Brain"])
+app.include_router(crawl.router, prefix="/api/v1", tags=["World Crawl"])
 app.include_router(evidence.router, prefix="/api/v1", tags=["Evidence"])
 app.include_router(extensions.router, prefix="/api/v1", tags=["Extensions"])
 app.include_router(analyze.router, prefix="/api/v1", tags=["Analysis"])
@@ -309,6 +314,7 @@ app.include_router(changes.router, prefix="/api/v1", tags=["Changes"])
 app.include_router(monitoring.router, prefix="/api/v1", tags=["Monitoring"])
 app.include_router(api_keys.router, prefix="/api/v1", tags=["API Keys"])
 app.include_router(jobs.router, prefix="/api/v1", tags=["Jobs"])
+app.include_router(lakehouse.router, prefix="/api/v1", tags=["Lakehouse"])
 app.include_router(stream.router, prefix="/api/v1", tags=["Real-Time Stream"])
 app.include_router(ask.router, prefix="/api/v1", tags=["Natural Language Query"])
 app.include_router(workflows.router, prefix="/api/v1", tags=["Agent Workflows"])

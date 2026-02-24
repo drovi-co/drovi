@@ -15,6 +15,11 @@ from .models import (
 from .recommendations import QualityRecommendationService
 from .regression_gates import RegressionGateService
 from .scoring import RunQualityScoringService
+from .world_brain_eval import (
+    BeliefStateEvalCase,
+    evaluate_belief_state,
+    run_world_brain_regression_suite,
+)
 
 __all__ = [
     "CalibrationSnapshot",
@@ -33,5 +38,7 @@ __all__ = [
     "RegressionGateService",
     "RunQualityScoreRecord",
     "RunQualityScoringService",
+    "BeliefStateEvalCase",
+    "evaluate_belief_state",
+    "run_world_brain_regression_suite",
 ]
-

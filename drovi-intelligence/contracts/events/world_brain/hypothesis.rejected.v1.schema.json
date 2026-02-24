@@ -1,0 +1,85 @@
+{
+  "$defs": {
+    "HypothesisRejectedPayload": {
+      "properties": {
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "disproving_observation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Disproving Observation Ids",
+          "type": "array"
+        },
+        "hypothesis_id": {
+          "title": "Hypothesis Id",
+          "type": "string"
+        },
+        "rejected_at": {
+          "format": "date-time",
+          "title": "Rejected At",
+          "type": "string"
+        },
+        "rejection_reason": {
+          "title": "Rejection Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hypothesis_id",
+        "rejection_reason",
+        "rejected_at",
+        "confidence"
+      ],
+      "title": "HypothesisRejectedPayload",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "const": "hypothesis.rejected.v1",
+      "default": "hypothesis.rejected.v1",
+      "title": "Event Type",
+      "type": "string"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "organization_id": {
+      "title": "Organization Id",
+      "type": "string"
+    },
+    "payload": {
+      "$ref": "#/$defs/HypothesisRejectedPayload"
+    },
+    "producer": {
+      "default": "drovi-intelligence",
+      "title": "Producer",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "organization_id",
+    "event_id",
+    "occurred_at",
+    "payload"
+  ],
+  "title": "HypothesisRejectedEvent",
+  "type": "object"
+}

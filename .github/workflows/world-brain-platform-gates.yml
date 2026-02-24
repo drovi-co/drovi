@@ -1,0 +1,109 @@
+name: world-brain-platform-gates
+
+on:
+  pull_request:
+    paths:
+      - "infra/aws/**"
+      - "drovi-intelligence/**"
+      - ".github/workflows/world-brain-platform-gates.yml"
+  push:
+    branches: [main, staging, develop]
+    paths:
+      - "infra/aws/**"
+      - "drovi-intelligence/**"
+      - ".github/workflows/world-brain-platform-gates.yml"
+
+jobs:
+  infra-validate:
+    name: Infra Validate (Terraform + Kustomize)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Terraform fmt + validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform -chdir=infra/aws/terraform fmt -check -recursive
+          terraform -chdir=infra/aws/terraform init -backend=false
+          terraform -chdir=infra/aws/terraform validate
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Kustomize render checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl kustomize infra/aws/k8s/base >/tmp/kustomize-base.yaml
+          kubectl kustomize infra/aws/k8s/overlays/staging >/tmp/kustomize-staging.yaml
+          kubectl kustomize infra/aws/k8s/overlays/production >/tmp/kustomize-production.yaml
+
+      - name: Ensure no unreplaced placeholders in applied manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n -E 'REPLACE_[A-Z0-9_]+' infra/aws/k8s \
+              --include='*.yaml' \
+              --exclude='secrets.template.yaml'; then
+            echo "Found unreplaced placeholders in Kubernetes manifests."
+            exit 1
+          fi
+
+  contracts-migrations-replay:
+    name: Contracts + Migrations + Replay Gates
+    runs-on: ubuntu-latest
+    needs: [infra-validate]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install drovi-intelligence
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e drovi-intelligence
+
+      - name: Contract snapshots stay in sync
+        shell: bash
+        run: |
+          set -euo pipefail
+          python drovi-intelligence/scripts/generate_world_brain_event_contracts.py
+          git diff --exit-code drovi-intelligence/contracts/events/world_brain
+
+      - name: Migration symmetry tests
+        run: |
+          pytest -q \
+            drovi-intelligence/tests/unit/db/test_world_brain_phase1_migration.py \
+            drovi-intelligence/tests/unit/db/test_source_sync_run_migration.py \
+            drovi-intelligence/tests/unit/db/test_world_crawl_migration.py \
+            drovi-intelligence/tests/unit/db/test_lakehouse_migration.py
+
+      - name: Replay and event contract tests
+        run: |
+          pytest -q \
+            drovi-intelligence/tests/unit/streaming/test_world_brain_event_contracts.py \
+            drovi-intelligence/tests/unit/streaming/test_world_brain_event_contract_snapshots.py \
+            drovi-intelligence/tests/unit/streaming/test_kafka_consumer_world_brain_contracts.py \
+            drovi-intelligence/tests/unit/streaming/test_dlq_cli_world_brain.py
+
+      - name: World-brain worker smoke tests
+        run: |
+          pytest -q \
+            drovi-intelligence/tests/unit/jobs/test_worker_pool_isolation.py \
+            drovi-intelligence/tests/unit/jobs/test_world_brain_maintenance_script.py \
+            drovi-intelligence/tests/unit/streaming/test_worker_normalized_persistence.py \
+            drovi-intelligence/tests/unit/ops/test_world_brain_autoscaler.py \
+            drovi-intelligence/tests/unit/ops/test_world_brain_sla_report.py \
+            drovi-intelligence/tests/unit/ops/test_verify_dr_targets.py \
+            drovi-intelligence/tests/unit/ops/test_world_brain_provenance.py

@@ -29,6 +29,16 @@ from src.connectors.sources.productivity.google_docs.definition import CONNECTOR
 from src.connectors.sources.productivity.notion.definition import CONNECTOR_DEFINITION as NOTION
 from src.connectors.sources.storage.bigquery_definition import CONNECTOR_DEFINITION as BIGQUERY
 from src.connectors.sources.storage.s3_definition import CONNECTOR_DEFINITION as S3
+from src.connectors.sources.world.cisa_kev_definition import CONNECTOR_DEFINITION as CISA_KEV
+from src.connectors.sources.world.commercial_premium_definition import (
+    CONNECTOR_DEFINITION as COMMERCIAL_PREMIUM,
+)
+from src.connectors.sources.world.crossref_definition import CONNECTOR_DEFINITION as CROSSREF
+from src.connectors.sources.world.federal_register_definition import CONNECTOR_DEFINITION as FEDERAL_REGISTER
+from src.connectors.sources.world.fred_definition import CONNECTOR_DEFINITION as FRED
+from src.connectors.sources.world.rss_osint_definition import CONNECTOR_DEFINITION as RSS_OSINT
+from src.connectors.sources.world.sec_edgar_definition import CONNECTOR_DEFINITION as SEC_EDGAR
+from src.connectors.sources.world.worldnewsapi_definition import CONNECTOR_DEFINITION as WORLD_NEWS_API
 
 
 _DEFINITIONS: tuple[ConnectorDefinition, ...] = (
@@ -55,6 +65,15 @@ _DEFINITIONS: tuple[ConnectorDefinition, ...] = (
     MONGODB,
     # Files
     DOCUMENTS,
+    # World/public sources
+    SEC_EDGAR,
+    FEDERAL_REGISTER,
+    FRED,
+    CROSSREF,
+    CISA_KEV,
+    COMMERCIAL_PREMIUM,
+    RSS_OSINT,
+    WORLD_NEWS_API,
 )
 
 _BY_TYPE: dict[str, ConnectorDefinition] = {d.connector_type: d for d in _DEFINITIONS}
@@ -84,4 +103,3 @@ def iter_required_settings(connector_type: str) -> Iterable[RequiredSetting]:
     if not definition:
         return ()
     return required_settings_for(definition)
-

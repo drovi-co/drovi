@@ -1,0 +1,115 @@
+{
+  "$defs": {
+    "InterventionProposedPayload": {
+      "properties": {
+        "action_graph": {
+          "additionalProperties": true,
+          "title": "Action Graph",
+          "type": "object"
+        },
+        "downside_risk_estimate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Downside Risk Estimate"
+        },
+        "expected_utility_delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Utility Delta"
+        },
+        "intervention_plan_id": {
+          "title": "Intervention Plan Id",
+          "type": "string"
+        },
+        "policy_class": {
+          "title": "Policy Class",
+          "type": "string"
+        },
+        "proposed_at": {
+          "format": "date-time",
+          "title": "Proposed At",
+          "type": "string"
+        },
+        "rollback_plan": {
+          "additionalProperties": true,
+          "title": "Rollback Plan",
+          "type": "object"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "target_ref": {
+          "title": "Target Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "intervention_plan_id",
+        "target_ref",
+        "policy_class",
+        "status",
+        "proposed_at"
+      ],
+      "title": "InterventionProposedPayload",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "const": "intervention.proposed.v1",
+      "default": "intervention.proposed.v1",
+      "title": "Event Type",
+      "type": "string"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "organization_id": {
+      "title": "Organization Id",
+      "type": "string"
+    },
+    "payload": {
+      "$ref": "#/$defs/InterventionProposedPayload"
+    },
+    "producer": {
+      "default": "drovi-intelligence",
+      "title": "Producer",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "organization_id",
+    "event_id",
+    "occurred_at",
+    "payload"
+  ],
+  "title": "InterventionProposedEvent",
+  "type": "object"
+}

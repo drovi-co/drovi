@@ -1,0 +1,76 @@
+name: world-brain-dr-drill
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 1 * *"
+
+jobs:
+  dr-drill:
+    runs-on: self-hosted
+    env:
+      BACKUP_DIR: ./backups
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      RTO_TARGET_MINUTES: "60"
+      RPO_TARGET_MINUTES: "1440"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install drovi-intelligence
+        if: env.DATABASE_URL != ''
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e drovi-intelligence
+
+      - name: Run backup scripts
+        if: env.DATABASE_URL != ''
+        run: |
+          bash drovi-intelligence/scripts/backup_postgres.sh
+          bash drovi-intelligence/scripts/backup_falkordb.sh
+          bash drovi-intelligence/scripts/backup_minio.sh
+          bash drovi-intelligence/scripts/verify_backups.sh
+
+      - name: Restore drill (Postgres) and capture RTO
+        if: env.DATABASE_URL != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest=$(ls -t "$BACKUP_DIR"/postgres_*.sql.gz | head -n 1)
+          start_ts=$(date +%s)
+          bash drovi-intelligence/scripts/restore_postgres.sh "$latest"
+          end_ts=$(date +%s)
+          python - <<PY > /tmp/restore_minutes.txt
+start = int("${start_ts}")
+end = int("${end_ts}")
+print(round((end - start) / 60.0, 6))
+PY
+
+      - name: Validate DR targets
+        if: env.DATABASE_URL != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          restore_minutes=$(cat /tmp/restore_minutes.txt)
+          python drovi-intelligence/scripts/verify_dr_targets.py \
+            --backup-dir "$BACKUP_DIR" \
+            --rpo-target-minutes "$RPO_TARGET_MINUTES" \
+            --rto-target-minutes "$RTO_TARGET_MINUTES" \
+            --observed-restore-minutes "$restore_minutes" \
+            > artifacts/world-brain-dr-drill.json
+
+      - name: Skip if DATABASE_URL is missing
+        if: env.DATABASE_URL == ''
+        run: echo "DATABASE_URL is not configured; skipping DR drill."
+
+      - name: Upload DR drill report
+        if: env.DATABASE_URL != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-brain-dr-drill
+          path: artifacts/world-brain-dr-drill.json

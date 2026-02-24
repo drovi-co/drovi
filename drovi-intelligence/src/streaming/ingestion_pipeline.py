@@ -22,7 +22,9 @@ from src.connectors.base.records import Record, RecordType
 from src.connectors.normalization import normalize_record_for_pipeline
 from src.connectors.definitions.registry import get_connector_definition
 from src.ingestion.priority import compute_ingest_priority
+from src.ingestion.surge_control import apply_ingest_surge_controls, parse_source_throttle_map
 from src.ingestion.unified_event import build_content_hash, build_source_fingerprint
+from src.ingestion.world_normalization import normalize_world_source_payload
 from src.identity import IdentitySource, IdentityType, get_identity_graph
 from src.kernel.text import sanitize_extraction_text
 from src.monitoring import get_metrics
@@ -163,12 +165,24 @@ def _build_ingest_metadata(
         is_vip=is_vip,
         explicit_priority=explicit_priority,
     )
+    settings = get_settings()
+    surge = apply_ingest_surge_controls(
+        source_type=source_type,
+        base_priority=priority,
+        kill_switch=bool(settings.world_ingest_kill_switch_enabled),
+        noncritical_threshold=int(settings.world_ingest_noncritical_priority_threshold),
+        global_throttle_multiplier=float(settings.world_ingest_global_throttle_multiplier),
+        source_throttle_map=parse_source_throttle_map(settings.world_ingest_source_throttle_map),
+    )
     ingest = {
-        "priority": priority,
+        "priority": surge.priority,
         "content_hash": content_hash,
         "source_fingerprint": fingerprint,
         "job_type": job_type,
+        "surge_control": surge.to_dict(),
     }
+    if surge.drop_event:
+        ingest["drop_event"] = True
     if origin_timestamp:
         ingest["origin_ts"] = origin_timestamp
     return ingest
@@ -178,19 +192,53 @@ def normalize_raw_event_payload(
     event_payload: dict[str, Any],
     kafka_timestamp: str | None = None,
 ) -> NormalizedRecordEvent | None:
+    world_observation_raw = False
     event_type = event_payload.get("event_type") or "unknown"
     organization_id = event_payload.get("organization_id")
     source_type = event_payload.get("source_type") or "api"
     source_id = event_payload.get("source_id")
     payload = event_payload.get("payload") or {}
+    source_metadata: dict[str, Any] = {}
+    ingest_run_id: str | None = None
+    trace_id: str | None = None
+    artifact_id: str | None = None
+    artifact_sha256: str | None = None
+    artifact_storage_path: str | None = None
+    observation_id: str | None = None
+    observation_tags: list[str] = []
+    reliability_score: float | None = None
+
+    if event_type == "observation.raw.v1" and isinstance(payload, dict):
+        world_observation_raw = True
+        observation_id = str(payload.get("observation_id") or "")
+        source_type = str(payload.get("source_type") or source_type or "api")
+        source_id = str(payload.get("source_ref") or source_id or observation_id or "")
+        event_type = str(payload.get("observation_type") or event_type or "unknown")
+        payload = payload.get("content") or {}
+        source_metadata = (
+            dict(event_payload.get("payload", {}).get("source_metadata") or {})
+            if isinstance(event_payload.get("payload"), dict)
+            else {}
+        )
+        ingest_run_id = str(event_payload.get("payload", {}).get("ingest_run_id") or "") or None
+        trace_id = str(event_payload.get("payload", {}).get("trace_id") or "") or None
+        artifact_id = str(event_payload.get("payload", {}).get("artifact_id") or "") or None
+        artifact_sha256 = str(event_payload.get("payload", {}).get("artifact_sha256") or "") or None
+        artifact_storage_path = str(event_payload.get("payload", {}).get("artifact_storage_path") or "") or None
+        observation_tags = list(event_payload.get("payload", {}).get("tags") or [])
+        raw_reliability = event_payload.get("payload", {}).get("reliability_score")
+        try:
+            reliability_score = float(raw_reliability) if raw_reliability is not None else None
+        except Exception:
+            reliability_score = None
 
     if not organization_id:
         logger.warning("Normalization skipped: missing organization_id", event_type=event_type)
         return None
 
-    connector_type = payload.get("connector_type")
-    connection_id = payload.get("connection_id")
-    job_type = payload.get("job_type")
+    connector_type = source_metadata.get("connector_type") or payload.get("connector_type")
+    connection_id = source_metadata.get("connection_id") or payload.get("connection_id")
+    job_type = source_metadata.get("job_type") or payload.get("job_type")
     provider_config = payload.get("provider_config") or {}
 
     record_payload = payload.get("record")
@@ -263,7 +311,46 @@ def normalize_raw_event_payload(
         if content:
             normalized.content = content
 
-    message_id = record_obj.record_id if record_obj else source_id
+    canonical_world = normalize_world_source_payload(
+        source_type=source_type,
+        connector_type=connector_type,
+        source_metadata=source_metadata,
+        payload=payload if isinstance(payload, dict) else None,
+    )
+    if canonical_world:
+        if not normalized.content.strip() or len(canonical_world.content) > len(normalized.content):
+            normalized.content = canonical_world.content
+            if canonical_world.subject:
+                normalized.subject = canonical_world.subject
+        if isinstance(normalized.metadata, dict):
+            normalized.metadata = {
+                **normalized.metadata,
+                "world_canonical": {
+                    "family": canonical_world.family,
+                    "subject": canonical_world.subject,
+                    "entities": canonical_world.entities,
+                    "metadata": canonical_world.metadata,
+                },
+            }
+
+    if isinstance(normalized.metadata, dict):
+        normalized.metadata = {
+            **normalized.metadata,
+            "world_observation_raw": {
+                "enabled": world_observation_raw,
+                "observation_id": observation_id,
+                "artifact_id": artifact_id,
+                "artifact_sha256": artifact_sha256,
+                "artifact_storage_path": artifact_storage_path,
+                "ingest_run_id": ingest_run_id,
+                "trace_id": trace_id,
+                "observation_tags": observation_tags,
+                "reliability_score": reliability_score,
+                "source_metadata": source_metadata,
+            },
+        }
+
+    message_id = record_obj.record_id if record_obj else (source_id or observation_id)
     ingest = _build_ingest_metadata(
         normalized_content=normalized.content,
         source_type=normalized.source_type,
@@ -273,6 +360,18 @@ def normalize_raw_event_payload(
         job_type=job_type,
         origin_timestamp=kafka_timestamp,
     )
+    if ingest_run_id:
+        ingest["ingest_run_id"] = ingest_run_id
+    if trace_id:
+        ingest["trace_id"] = trace_id
+    if artifact_id:
+        ingest["evidence_artifact_id"] = artifact_id
+    if artifact_sha256:
+        ingest["artifact_sha256"] = artifact_sha256
+    if artifact_storage_path:
+        ingest["artifact_storage_path"] = artifact_storage_path
+    if reliability_score is not None:
+        ingest["source_reliability"] = reliability_score
 
     return NormalizedRecordEvent(
         normalized_id=str(uuid4()),

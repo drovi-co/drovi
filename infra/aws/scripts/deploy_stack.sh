@@ -108,6 +108,11 @@ wait_for_deployment_rollout() {
 
   echo "Deployment ${deployment_name} failed rollout within ${timeout}. Dumping diagnostics..." >&2
   dump_deployment_diagnostics "${deployment_name}"
+  if [[ "${auto_rollback_on_failed_rollout}" == "true" ]]; then
+    echo "Attempting rollout undo for deployment/${deployment_name}..." >&2
+    kubectl -n drovi rollout undo "deployment/${deployment_name}" || true
+    kubectl -n drovi rollout status "deployment/${deployment_name}" --timeout=5m || true
+  fi
   return 1
 }
 
@@ -287,6 +292,7 @@ fi
 kafka_bootstrap_timeout="${KAFKA_BOOTSTRAP_WAIT_TIMEOUT:-20m}"
 min_eks_node_count="${MIN_EKS_NODE_COUNT:-}"
 require_ingress_controller="${REQUIRE_INGRESS_CONTROLLER:-}"
+auto_rollback_on_failed_rollout="${AUTO_ROLLBACK_ON_FAILED_ROLLOUT:-true}"
 
 if [[ -z "${min_eks_node_count}" ]]; then
   if [[ "${K8S_OVERLAY}" == "staging" ]]; then
@@ -417,6 +423,7 @@ kubectl -n drovi create secret generic drovi-secrets \
   --from-literal=KRAKEN_API_SECRET="${KRAKEN_API_SECRET:-}" \
   --from-literal=BENZINGA_API_KEY="${BENZINGA_API_KEY:-}" \
   --from-literal=NEWSAPI_API_KEY="${NEWSAPI_API_KEY:-}" \
+  --from-literal=WORLD_NEWS_API_KEY="${WORLD_NEWS_API_KEY:-}" \
   --from-literal=FMP_API_KEY="${FMP_API_KEY:-}" \
   --from-literal=PLAID_CLIENT_ID="${PLAID_CLIENT_ID:-}" \
   --from-literal=PLAID_SECRET="${PLAID_SECRET:-}" \
@@ -472,6 +479,11 @@ for deployment in \
   drovi-jobs-worker \
   drovi-ingestion-worker \
   drovi-temporal-worker \
+  drovi-world-normalize-worker \
+  drovi-world-graph-worker \
+  drovi-world-ml-worker \
+  drovi-world-simulation-worker \
+  drovi-world-critical-worker \
   imperium-api \
   imperium-market-worker \
   imperium-news-worker \

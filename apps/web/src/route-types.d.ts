@@ -235,6 +235,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: any;
       parentRoute: any;
     };
+    "/dashboard/world-brain/": {
+      id: "/dashboard/world-brain/";
+      path: "/world-brain";
+      fullPath: "/dashboard/world-brain";
+      preLoaderRoute: any;
+      parentRoute: any;
+    };
     "/dashboard/schedule": {
       id: "/dashboard/schedule";
       path: "/schedule";

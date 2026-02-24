@@ -80,6 +80,274 @@ export type {
   User,
 } from "@memorystack/api-client/web";
 
+export interface WorldBrainTapeEvent {
+  event_id: string;
+  lane: "internal" | "external" | "bridge" | string;
+  delta_domain: string;
+  severity: "critical" | "high" | "medium" | "low" | string;
+  confidence: number;
+  uncertainty_score?: number;
+  calibration_bucket?: string;
+  contradiction_confidence?: number;
+  source_reliability?: {
+    source_key?: string | null;
+    score?: number | null;
+    band?: "high" | "medium" | "low" | "unknown" | string;
+    corroboration_rate?: number | null;
+    false_positive_rate?: number | null;
+    last_evaluated_at?: string | null;
+  };
+  summary: string;
+  title?: string | null;
+  occurred_at?: string | null;
+  entity_refs?: string[];
+  impact_bridge?: Record<string, unknown>;
+  proof_bundle?: {
+    bundle_id?: string;
+    citations?: Array<Record<string, unknown>>;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+export interface WorldBrainTapeResponse {
+  success: boolean;
+  count: number;
+  items: WorldBrainTapeEvent[];
+}
+
+export interface WorldBrainTapeLiveContractResponse {
+  success: boolean;
+  contract: {
+    organization_id: string;
+    lanes: {
+      internal: WorldBrainTapeEvent[];
+      external: WorldBrainTapeEvent[];
+      bridge: WorldBrainTapeEvent[];
+      world_pressure: Array<{
+        entity_id: string;
+        pressure_score: number;
+        tier: string;
+      }>;
+    };
+    visualization_contract: Record<string, unknown>;
+    filters: Record<string, unknown>;
+  };
+}
+
+export interface WorldBrainProofCitation {
+  kind?: string;
+  ref_id?: string;
+  [key: string]: unknown;
+}
+
+export interface WorldBrainTapeProofBundle {
+  bundle_id?: string;
+  citations?: WorldBrainProofCitation[];
+  timeline?: Array<Record<string, unknown>>;
+  confidence_reasoning?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface WorldBrainTapeEventDetailResponse {
+  success: boolean;
+  event: WorldBrainTapeEvent;
+  proof_bundle: WorldBrainTapeProofBundle;
+  redaction_applied?: boolean;
+}
+
+export interface WorldBrainObligationDashboardResponse {
+  success: boolean;
+  dashboard: {
+    summary: {
+      active_constraints: number;
+      total_signals: number;
+      pre_breach_warnings: number;
+      post_breach_open: number;
+      severity_counts: Record<string, number>;
+    };
+    pre_breach: WorldBrainObligationSignal[];
+    post_breach: WorldBrainObligationSignal[];
+    workflows: {
+      pre_breach?: string[];
+      post_breach?: string[];
+      [key: string]: string[] | undefined;
+    };
+    generated_at: string;
+  };
+}
+
+export interface WorldBrainObligationSignal {
+  id: string;
+  status?: string;
+  severity?: string;
+  constraint_title?: string;
+  constraint_id?: string;
+  confidence?: number;
+  uncertainty_score?: number;
+  source_reliability?: {
+    score?: number | null;
+    band?: "high" | "medium" | "low" | "unknown" | string;
+  };
+  occurred_at?: string;
+  [key: string]: unknown;
+}
+
+export interface WorldBrainObligationTriageResponse {
+  success: boolean;
+  triage: {
+    violation_id: string;
+    action: "acknowledge" | "escalate" | "resolve" | "simulate_impact" | string;
+    status: string;
+    severity: string;
+    recommended_steps: string[];
+    notes?: string | null;
+    counterfactual_preview?: {
+      simulation_id: string;
+      risk_score: number;
+      downside_risk_estimate: number;
+      utility_delta: number;
+    } | null;
+    generated_at: string;
+  };
+  explainability?: Record<string, unknown>;
+}
+
+export interface WorldBrainCounterfactualScenario {
+  simulation_id?: string;
+  scenario_name?: string;
+  simulated?: {
+    risk_score?: number;
+    [key: string]: unknown;
+  };
+  utility?: {
+    simulated_utility?: number;
+    utility_delta?: number;
+    [key: string]: unknown;
+  };
+  downside_risk_estimate?: number;
+  [key: string]: unknown;
+}
+
+export interface WorldBrainCounterfactualComparison {
+  preferred: "a" | "b" | "tie" | string;
+  score_a: number;
+  score_b: number;
+  delta: number;
+  scenario_a: WorldBrainCounterfactualScenario;
+  scenario_b: WorldBrainCounterfactualScenario;
+  intervention_previews: Record<string, Record<string, unknown>>;
+  generated_at: string;
+}
+
+export interface WorldBrainCounterfactualCompareResponse {
+  success: boolean;
+  comparison: WorldBrainCounterfactualComparison;
+  explainability?: Record<string, unknown>;
+}
+
+export interface WorldBrainSourceConnection {
+  id: string;
+  connector_type: string;
+  name: string;
+  organization_id: string;
+  status: string;
+  created_at: string;
+  last_sync_at?: string | null;
+  sync_enabled: boolean;
+  streams: string[];
+}
+
+export interface WorldBrainSourceHealthResponse {
+  connection_id: string;
+  organization_id: string;
+  connector_type: string;
+  status: string;
+  reason_code: string;
+  reason: string;
+  last_sync_at?: string | null;
+  minutes_since_last_sync?: number | null;
+  stale_after_minutes: number;
+  sync_slo_breached: boolean;
+  sync_slo_minutes: number;
+  recent_failures: number;
+  recovery_action: string;
+  last_error?: string | null;
+  checked_at: string;
+}
+
+export interface WorldBrainIngestRun {
+  id: string;
+  organization_id: string;
+  connection_id: string;
+  connector_type: string;
+  run_kind: string;
+  status: string;
+  retry_class?: string | null;
+  scheduled_interval_minutes?: number | null;
+  freshness_lag_minutes?: number | null;
+  quota_headroom_ratio?: number | null;
+  voi_priority?: number | null;
+  records_synced: number;
+  bytes_synced: number;
+  cost_units?: number | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  duration_seconds?: number | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface WorldBrainIngestRunsResponse {
+  connection_id: string;
+  runs: WorldBrainIngestRun[];
+}
+
+export interface WorldBrainSourceOperationResponse {
+  connection_id: string;
+  status: string;
+  replay_job_id?: string;
+  backfill_jobs?: string[];
+  [key: string]: unknown;
+}
+
+export interface WorldBrainSourceHistoryJob {
+  id: string;
+  job_type: string;
+  status: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  duration_seconds?: number | null;
+  records_synced: number;
+  bytes_synced: number;
+  streams: string[];
+  streams_completed: string[];
+  streams_failed: string[];
+  error_message?: string | null;
+  extra_data?: Record<string, unknown>;
+}
+
+export interface WorldBrainSourceHistoryResponse {
+  connection_id: string;
+  jobs: WorldBrainSourceHistoryJob[];
+}
+
+export interface WorldBrainSignalFeedbackResult {
+  realized_outcome_id: string;
+  intervention_plan_id?: string | null;
+  outcome_type: string;
+  outcome_payload: Record<string, unknown>;
+  outcome_hash: string;
+  measured_at: string;
+}
+
+export interface WorldBrainSignalFeedbackResponse {
+  success: boolean;
+  enqueued: boolean;
+  job_id?: string;
+  result?: WorldBrainSignalFeedbackResult;
+  explainability?: Record<string, unknown>;
+}
+
 const APP_BASE_URL = env.VITE_SERVER_URL;
 
 const client = new ApiClient({
@@ -187,6 +455,307 @@ export const auditAPI = createAuditApi(client);
 export const changesAPI = createChangesApi(client);
 export const patternsAPI = createPatternsApi(client);
 export const graphAPI = createGraphApi(client);
+
+export const worldBrainAPI = {
+  listTape(params: {
+    organizationId: string;
+    hours?: number;
+    limit?: number;
+    lane?: string;
+    deltaDomain?: string;
+    minConfidence?: number;
+  }): Promise<WorldBrainTapeResponse> {
+    const query = new URLSearchParams();
+    query.set("organization_id", params.organizationId);
+    if (typeof params.hours === "number") {
+      query.set("hours", String(params.hours));
+    }
+    if (typeof params.limit === "number") {
+      query.set("limit", String(params.limit));
+    }
+    if (params.lane) {
+      query.set("lane", params.lane);
+    }
+    if (params.deltaDomain) {
+      query.set("delta_domain", params.deltaDomain);
+    }
+    if (typeof params.minConfidence === "number") {
+      query.set("min_confidence", String(params.minConfidence));
+    }
+    return apiFetch<WorldBrainTapeResponse>(`/brain/tape?${query.toString()}`);
+  },
+
+  getTapeLiveContract(params: {
+    organizationId: string;
+    role?: string;
+    limit?: number;
+  }): Promise<WorldBrainTapeLiveContractResponse> {
+    const query = new URLSearchParams();
+    query.set("organization_id", params.organizationId);
+    if (params.role) {
+      query.set("role", params.role);
+    }
+    if (typeof params.limit === "number") {
+      query.set("limit", String(params.limit));
+    }
+    return apiFetch<WorldBrainTapeLiveContractResponse>(
+      `/brain/tape/live-contract?${query.toString()}`
+    );
+  },
+
+  getTapeEvent(params: {
+    organizationId: string;
+    eventId: string;
+  }): Promise<WorldBrainTapeEventDetailResponse> {
+    const query = new URLSearchParams();
+    query.set("organization_id", params.organizationId);
+    return apiFetch<WorldBrainTapeEventDetailResponse>(
+      `/brain/tape/${encodeURIComponent(params.eventId)}?${query.toString()}`
+    );
+  },
+
+  getObligationDashboard(params: {
+    organizationId: string;
+    limit?: number;
+  }): Promise<WorldBrainObligationDashboardResponse> {
+    const query = new URLSearchParams();
+    query.set("organization_id", params.organizationId);
+    if (typeof params.limit === "number") {
+      query.set("limit", String(params.limit));
+    }
+    return apiFetch<WorldBrainObligationDashboardResponse>(
+      `/brain/obligation-sentinel/dashboard?${query.toString()}`
+    );
+  },
+
+  triageObligationSignal(params: {
+    organizationId: string;
+    violationId: string;
+    action: "acknowledge" | "escalate" | "resolve" | "simulate_impact";
+    notes?: string;
+    includeCounterfactualPreview?: boolean;
+  }): Promise<WorldBrainObligationTriageResponse> {
+    return apiFetch<WorldBrainObligationTriageResponse>(
+      "/brain/obligation-sentinel/triage",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: params.organizationId,
+          violation_id: params.violationId,
+          action: params.action,
+          notes: params.notes,
+          include_counterfactual_preview:
+            params.includeCounterfactualPreview ?? false,
+        }),
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  },
+
+  compareCounterfactualLab(params: {
+    organizationId: string;
+    scenarioA: {
+      scenarioName: string;
+      horizonDays: number;
+    };
+    scenarioB: {
+      scenarioName: string;
+      horizonDays: number;
+    };
+    targetRef?: string;
+    maxConstraintSeverity?: string;
+    recommendedActions?: string[];
+    generateInterventions?: boolean;
+  }): Promise<WorldBrainCounterfactualCompareResponse> {
+    return apiFetch<WorldBrainCounterfactualCompareResponse>(
+      "/brain/counterfactual-lab/compare",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: params.organizationId,
+          scenario_a: {
+            organization_id: params.organizationId,
+            scenario_name: params.scenarioA.scenarioName,
+            horizon_days: params.scenarioA.horizonDays,
+          },
+          scenario_b: {
+            organization_id: params.organizationId,
+            scenario_name: params.scenarioB.scenarioName,
+            horizon_days: params.scenarioB.horizonDays,
+          },
+          target_ref: params.targetRef ?? "portfolio_risk",
+          max_constraint_severity: params.maxConstraintSeverity ?? null,
+          recommended_actions: params.recommendedActions ?? [],
+          generate_interventions: params.generateInterventions ?? true,
+        }),
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  },
+
+  listSourceConnections(params: {
+    organizationId: string;
+    connectorType?: string;
+  }): Promise<WorldBrainSourceConnection[]> {
+    const query = new URLSearchParams();
+    query.set("organization_id", params.organizationId);
+    if (params.connectorType) {
+      query.set("connector_type", params.connectorType);
+    }
+    return apiFetch<WorldBrainSourceConnection[]>(`/connections?${query.toString()}`);
+  },
+
+  getSourceHealth(params: {
+    connectionId: string;
+  }): Promise<WorldBrainSourceHealthResponse> {
+    return apiFetch<WorldBrainSourceHealthResponse>(
+      `/connections/${encodeURIComponent(params.connectionId)}/health`
+    );
+  },
+
+  listIngestRuns(params: {
+    connectionId: string;
+    limit?: number;
+  }): Promise<WorldBrainIngestRunsResponse> {
+    const query = new URLSearchParams();
+    if (typeof params.limit === "number") {
+      query.set("limit", String(params.limit));
+    }
+    const path = `/connections/${encodeURIComponent(params.connectionId)}/ingest/runs`;
+    return apiFetch<WorldBrainIngestRunsResponse>(
+      query.size > 0 ? `${path}?${query.toString()}` : path
+    );
+  },
+
+  pauseSourceIngest(params: {
+    connectionId: string;
+    reason?: string;
+  }): Promise<WorldBrainSourceOperationResponse> {
+    const query = new URLSearchParams();
+    if (params.reason) {
+      query.set("reason", params.reason);
+    }
+    const path = `/connections/${encodeURIComponent(params.connectionId)}/ingest/pause`;
+    return apiFetch<WorldBrainSourceOperationResponse>(
+      query.size > 0 ? `${path}?${query.toString()}` : path,
+      {
+        method: "POST",
+      }
+    );
+  },
+
+  resumeSourceIngest(params: {
+    connectionId: string;
+  }): Promise<WorldBrainSourceOperationResponse> {
+    return apiFetch<WorldBrainSourceOperationResponse>(
+      `/connections/${encodeURIComponent(params.connectionId)}/ingest/resume`,
+      {
+        method: "POST",
+      }
+    );
+  },
+
+  replaySourceIngest(params: {
+    connectionId: string;
+    checkpointCursor?: Record<string, unknown> | null;
+    streams?: string[];
+    fullRefresh?: boolean;
+  }): Promise<WorldBrainSourceOperationResponse> {
+    return apiFetch<WorldBrainSourceOperationResponse>(
+      `/connections/${encodeURIComponent(params.connectionId)}/ingest/replay`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          checkpoint_cursor: params.checkpointCursor ?? null,
+          streams: params.streams ?? [],
+          full_refresh: params.fullRefresh ?? false,
+        }),
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  },
+
+  triggerSourceBackfill(params: {
+    connectionId: string;
+    startDate: string;
+    endDate?: string;
+    windowDays?: number;
+    streams?: string[];
+    throttleSeconds?: number;
+  }): Promise<WorldBrainSourceOperationResponse> {
+    return apiFetch<WorldBrainSourceOperationResponse>(
+      `/org/connections/${encodeURIComponent(params.connectionId)}/backfill`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          start_date: params.startDate,
+          end_date: params.endDate ?? null,
+          window_days: params.windowDays ?? 7,
+          streams: params.streams ?? [],
+          throttle_seconds: params.throttleSeconds ?? 1.0,
+        }),
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  },
+
+  getSourceHistory(params: {
+    connectionId: string;
+    limit?: number;
+    jobType?: string;
+  }): Promise<WorldBrainSourceHistoryResponse> {
+    const query = new URLSearchParams();
+    if (typeof params.limit === "number") {
+      query.set("limit", String(params.limit));
+    }
+    if (params.jobType) {
+      query.set("job_type", params.jobType);
+    }
+    const path = `/org/connections/${encodeURIComponent(params.connectionId)}/history`;
+    return apiFetch<WorldBrainSourceHistoryResponse>(
+      query.size > 0 ? `${path}?${query.toString()}` : path
+    );
+  },
+
+  submitSignalFeedback(params: {
+    organizationId: string;
+    eventId: string;
+    verdict: "false_positive" | "false_negative" | "confirmed";
+    correctionLabel?: string;
+    notes?: string;
+    lane?: string;
+    deltaDomain?: string;
+    confidence?: number;
+    enqueue?: boolean;
+  }): Promise<WorldBrainSignalFeedbackResponse> {
+    return apiFetch<WorldBrainSignalFeedbackResponse>(
+      "/brain/interventions/outcomes",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: params.organizationId,
+          intervention_plan_id: null,
+          outcome_type: `signal_feedback.${params.verdict}`,
+          outcome_payload: {
+            event_id: params.eventId,
+            correction_label: params.correctionLabel ?? null,
+            notes: params.notes ?? null,
+            lane: params.lane ?? null,
+            delta_domain: params.deltaDomain ?? null,
+            confidence:
+              typeof params.confidence === "number" ? params.confidence : null,
+            feedback_kind: "world_brain_signal",
+          },
+          measured_at: new Date().toISOString(),
+          persist: true,
+          publish_events: true,
+          enqueue: params.enqueue ?? false,
+        }),
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  },
+};
 
 export const supportAPI = createSupportApi(client);
 

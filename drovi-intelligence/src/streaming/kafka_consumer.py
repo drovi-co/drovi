@@ -126,6 +126,9 @@ class DroviKafkaConsumer:
         self._max_retry_attempts = max(0, settings.kafka_max_retry_attempts)
         self._max_retry_attempts_by_topic = settings.kafka_max_retry_attempts_by_topic or {}
         self._partition_offsets: dict[tuple[str, int], _PartitionOffsetTracker] = {}
+        self._processed_idempotency_keys: dict[str, float] = {}
+        self._idempotency_window_seconds = 3600
+        self._idempotency_cache_maxsize = 50_000
 
     async def connect(self) -> None:
         """Initialize the Kafka consumer connection."""
@@ -564,6 +567,36 @@ class DroviKafkaConsumer:
                 if self._queue:
                     self._queue.task_done()
 
+    def _prune_idempotency_cache(self, *, now_ts: float) -> None:
+        if not self._processed_idempotency_keys:
+            return
+        threshold = now_ts - self._idempotency_window_seconds
+        if len(self._processed_idempotency_keys) > self._idempotency_cache_maxsize:
+            stale_keys = [
+                key for key, seen_at in self._processed_idempotency_keys.items() if seen_at < threshold
+            ]
+            for key in stale_keys:
+                self._processed_idempotency_keys.pop(key, None)
+        elif any(seen_at < threshold for seen_at in self._processed_idempotency_keys.values()):
+            stale_keys = [
+                key for key, seen_at in self._processed_idempotency_keys.items() if seen_at < threshold
+            ]
+            for key in stale_keys:
+                self._processed_idempotency_keys.pop(key, None)
+
+    def _has_processed_idempotency_key(self, key: str) -> bool:
+        now_ts = time.time()
+        self._prune_idempotency_cache(now_ts=now_ts)
+        seen_at = self._processed_idempotency_keys.get(key)
+        if seen_at is None:
+            return False
+        return now_ts - seen_at <= self._idempotency_window_seconds
+
+    def _mark_processed_idempotency_key(self, key: str) -> None:
+        now_ts = time.time()
+        self._prune_idempotency_cache(now_ts=now_ts)
+        self._processed_idempotency_keys[key] = now_ts
+
     async def _process_message(self, msg) -> None:
         """Process a single Kafka message."""
         topic = msg.topic()
@@ -583,6 +616,18 @@ class DroviKafkaConsumer:
                     for h in msg.headers()
                 }
 
+            idempotency_key = (headers.get("drovi_idempotency_key") or "").strip()
+            if idempotency_key and self._has_processed_idempotency_key(idempotency_key):
+                logger.info(
+                    "Skipping duplicate message by idempotency key",
+                    topic=topic,
+                    partition=partition,
+                    offset=offset,
+                    idempotency_key=idempotency_key,
+                )
+                await self._commit_if_possible(topic, partition, offset)
+                return
+
             message = {
                 "topic": topic,
                 "key": key,
@@ -592,6 +637,9 @@ class DroviKafkaConsumer:
                 "timestamp": msg.timestamp()[1] if msg.timestamp() else None,
                 **value,
             }
+
+            if "payload" in message:
+                message["payload"] = self._validate_world_brain_payload(message["payload"])
 
             logger.debug(
                 "Processing message",
@@ -617,6 +665,9 @@ class DroviKafkaConsumer:
                     self._default_handler(handler_topic, message)
             else:
                 raise RuntimeError(f"No handler for topic: {handler_topic}")
+
+            if idempotency_key:
+                self._mark_processed_idempotency_key(idempotency_key)
 
             # Commit offset after successful processing
             await self._commit_if_possible(topic, partition, offset)
@@ -696,6 +747,27 @@ class DroviKafkaConsumer:
                     offset=offset,
                     error=str(route_exc),
                 )
+
+    def _validate_world_brain_payload(self, payload: Any) -> Any:
+        """Validate payloads that match known World Brain event contracts."""
+        if not isinstance(payload, dict):
+            return payload
+
+        event_type = payload.get("event_type")
+        schema_version = payload.get("schema_version")
+        if not isinstance(event_type, str) or schema_version != "1.0":
+            return payload
+
+        from src.streaming.world_brain_event_contracts import (
+            WORLD_BRAIN_EVENT_MODELS,
+            validate_world_brain_event,
+        )
+
+        if event_type not in WORLD_BRAIN_EVENT_MODELS:
+            return payload
+
+        validated = validate_world_brain_event(event_type, payload)
+        return validated.model_dump(mode="json")
 
     async def consume_batch(
         self,
@@ -797,6 +869,10 @@ async def get_kafka_consumer(
             settings.kafka_topic_normalized_records,
             settings.kafka_topic_pipeline_input,
             settings.kafka_topic_graph_changes,
+            settings.kafka_topic_crawl_frontier,
+            settings.kafka_topic_crawl_fetch,
+            settings.kafka_topic_crawl_parse,
+            settings.kafka_topic_crawl_diff,
         ]
         _kafka_consumer = DroviKafkaConsumer(
             bootstrap_servers=settings.kafka_bootstrap_servers,

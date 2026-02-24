@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "domain": "world_brain",
+  "contract": "obligation_sentinel",
+  "description": "Obligation Sentinel dashboard and triage workflows.",
+  "endpoints": [
+    {
+      "path": "/api/v1/brain/obligation-sentinel/dashboard",
+      "method": "GET",
+      "response": {
+        "success": "boolean",
+        "dashboard": "ObligationSentinelDashboard"
+      }
+    },
+    {
+      "path": "/api/v1/brain/obligation-sentinel/triage",
+      "method": "POST",
+      "request": {
+        "organization_id": "string",
+        "violation_id": "string",
+        "action": "acknowledge|escalate|resolve|simulate_impact",
+        "notes": "string|null",
+        "include_counterfactual_preview": "boolean"
+      },
+      "response": {
+        "success": "boolean",
+        "triage": "ObligationTriageResult"
+      }
+    }
+  ],
+  "types": {
+    "ObligationSentinelDashboard": {
+      "summary": "object",
+      "pre_breach": "Violation[]",
+      "post_breach": "Violation[]",
+      "workflows": "object"
+    },
+    "ObligationTriageResult": {
+      "violation_id": "string",
+      "action": "string",
+      "status": "string",
+      "severity": "string",
+      "recommended_steps": "string[]",
+      "counterfactual_preview": "object|null"
+    }
+  }
+}

@@ -6,8 +6,9 @@ Supports both scheduled and on-demand sync operations.
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from enum import Enum
+import hashlib
 from typing import Any, Callable, Coroutine
 from uuid import uuid4
 
@@ -38,8 +39,10 @@ class SyncJobType(str, Enum):
     """Type of sync job."""
 
     SCHEDULED = "scheduled"      # Regular scheduled sync
+    CONTINUOUS = "continuous"    # Continuous world-source ingest
     ON_DEMAND = "on_demand"      # Manual trigger
     BACKFILL = "backfill"        # Historical data backfill
+    REPLAY = "replay"            # Replay from checkpoint
     WEBHOOK = "webhook"          # Webhook-triggered sync
 
 
@@ -390,6 +393,159 @@ class ConnectorScheduler:
             except Exception as e:
                 logger.warning("Failed to schedule evidence retention cleanup", error=str(e))
 
+            # Crawl frontier tick (scalable world crawl control plane).
+            try:
+                from src.config import get_settings
+
+                settings = get_settings()
+
+                async def crawl_frontier_tick_job():
+                    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+                    tick_seconds = max(5, int(settings.crawl_frontier_tick_seconds))
+                    bucket = int(datetime.utcnow().timestamp()) // tick_seconds
+                    await enqueue_job(
+                        EnqueueJobRequest(
+                            organization_id="internal",
+                            job_type="crawl.frontier.tick",
+                            payload={
+                                "sync_params": {
+                                    "tick_seconds": tick_seconds,
+                                }
+                            },
+                            priority=0,
+                            max_attempts=1,
+                            idempotency_key=f"crawl_frontier_tick:{bucket}",
+                            resource_key="system:crawl_frontier_tick",
+                        )
+                    )
+
+                if settings.crawl_frontier_enabled:
+                    self._scheduler.add_job(
+                        crawl_frontier_tick_job,
+                        trigger=IntervalTrigger(seconds=max(5, int(settings.crawl_frontier_tick_seconds))),
+                        id="crawl_frontier_tick",
+                        name="Crawl frontier dispatch tick",
+                        replace_existing=True,
+                        coalesce=True,
+                        max_instances=1,
+                    )
+            except Exception as e:
+                logger.warning("Failed to schedule crawl frontier tick", error=str(e))
+
+            # Lakehouse quality checks (data-quality gate for partition promotion).
+            try:
+                from src.config import get_settings
+
+                settings = get_settings()
+
+                async def lakehouse_quality_job():
+                    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+                    bucket = int(datetime.utcnow().timestamp()) // 300
+                    await enqueue_job(
+                        EnqueueJobRequest(
+                            organization_id="internal",
+                            job_type="lakehouse.quality",
+                            payload={
+                                "organization_id": "internal",
+                                "table_name": None,
+                                "limit": 2000,
+                            },
+                            priority=0,
+                            max_attempts=2,
+                            idempotency_key=f"lakehouse_quality:{bucket}",
+                            resource_key="system:lakehouse_quality",
+                        )
+                    )
+
+                if settings.lakehouse_quality_enabled:
+                    self._scheduler.add_job(
+                        lakehouse_quality_job,
+                        trigger=CronTrigger.from_crontab(settings.lakehouse_quality_cron),
+                        id="lakehouse_quality",
+                        name="Lakehouse partition quality checks",
+                        replace_existing=True,
+                        coalesce=True,
+                        max_instances=1,
+                    )
+            except Exception as e:
+                logger.warning("Failed to schedule lakehouse quality checks", error=str(e))
+
+            # Lakehouse retention lifecycle cleanup.
+            try:
+                from src.config import get_settings
+
+                settings = get_settings()
+
+                async def lakehouse_retention_job():
+                    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+                    day = datetime.utcnow().strftime("%Y-%m-%d")
+                    await enqueue_job(
+                        EnqueueJobRequest(
+                            organization_id="internal",
+                            job_type="lakehouse.retention",
+                            payload={"organization_id": "internal", "limit": 5000},
+                            priority=0,
+                            max_attempts=1,
+                            idempotency_key=f"lakehouse_retention:{day}",
+                            resource_key="system:lakehouse_retention",
+                        )
+                    )
+
+                if settings.lakehouse_retention_enabled:
+                    self._scheduler.add_job(
+                        lakehouse_retention_job,
+                        trigger=CronTrigger.from_crontab(settings.lakehouse_retention_cron),
+                        id="lakehouse_retention",
+                        name="Lakehouse retention lifecycle cleanup",
+                        replace_existing=True,
+                        coalesce=True,
+                        max_instances=1,
+                    )
+            except Exception as e:
+                logger.warning("Failed to schedule lakehouse retention cleanup", error=str(e))
+
+            # Source reliability calibration (feeds source_reliability_profile).
+            try:
+                from src.config import get_settings
+
+                settings = get_settings()
+
+                async def source_reliability_calibration_job():
+                    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+                    bucket = int(datetime.utcnow().timestamp()) // 600
+                    await enqueue_job(
+                        EnqueueJobRequest(
+                            organization_id="internal",
+                            job_type="source.reliability.calibrate",
+                            payload={
+                                "organization_id": "internal",
+                                "lookback_days": int(settings.source_reliability_lookback_days),
+                                "limit_sources": int(settings.source_reliability_limit_sources),
+                            },
+                            priority=0,
+                            max_attempts=2,
+                            idempotency_key=f"source_reliability_calibration:{bucket}",
+                            resource_key="system:source_reliability_calibration",
+                        )
+                    )
+
+                if settings.source_reliability_calibration_enabled:
+                    self._scheduler.add_job(
+                        source_reliability_calibration_job,
+                        trigger=CronTrigger.from_crontab(settings.source_reliability_calibration_cron),
+                        id="source_reliability_calibration",
+                        name="Source reliability calibration",
+                        replace_existing=True,
+                        coalesce=True,
+                        max_instances=1,
+                    )
+            except Exception as e:
+                logger.warning("Failed to schedule source reliability calibration", error=str(e))
+
             # Reconcile per-connection scheduled sync jobs (restart-safe).
             try:
                 from src.config import get_settings
@@ -421,16 +577,24 @@ class ConnectorScheduler:
         rebuilt from DB state.
         """
         from src.config import get_settings
+        from src.connectors.scheduling.cadence_registry import (
+            build_continuous_ingest_idempotency_key,
+            compute_cadence_decision,
+            is_world_source_connector,
+            resolve_freshness_slo_minutes,
+        )
         from src.db.client import get_db_pool
         from src.db.rls import rls_context
 
         settings = get_settings()
+        queued_budget = max(1, int(settings.world_ingest_tenant_max_queued_jobs))
+        running_budget = max(1, int(settings.world_ingest_tenant_max_running_jobs))
 
         # Kill switch: allow disabling scheduled syncs during incidents.
         if not settings.scheduler_scheduled_syncs_enabled:
             removed = 0
             for job in self._scheduler.get_jobs():
-                if job.id.startswith("sync_"):
+                if job.id.startswith(("sync_", "world_sync_")):
                     try:
                         self._scheduler.remove_job(job.id)
                         removed += 1
@@ -452,7 +616,9 @@ class ConnectorScheduler:
                         organization_id,
                         connector_type,
                         name,
-                        sync_frequency_minutes
+                        sync_frequency_minutes,
+                        last_sync_at,
+                        config
                     FROM connections
                     WHERE sync_enabled = TRUE
                       AND status IN ('active', 'connected')
@@ -461,46 +627,147 @@ class ConnectorScheduler:
 
         desired_job_ids: set[str] = set()
         scheduled = 0
+        world_scheduled = 0
 
         for row in rows:
             connection_id = row["id"]
             organization_id = row["organization_id"]
             connector_type = row["connector_type"]
             name = row["name"]
-            interval_minutes = row["sync_frequency_minutes"]
+            raw_config = row["config"]
+            provider_config = raw_config if isinstance(raw_config, dict) else {}
+            source_settings = (
+                provider_config.get("settings")
+                if isinstance(provider_config.get("settings"), dict)
+                else {}
+            )
+            is_world_source = is_world_source_connector(str(connector_type))
 
-            if not interval_minutes:
+            base_interval = row["sync_frequency_minutes"]
+            if not base_interval:
                 defaults = DEFAULT_SYNC_SCHEDULES.get(connector_type, {})
-                interval_minutes = defaults.get("interval_minutes", 15)
+                base_interval = defaults.get("interval_minutes", 15)
+            base_interval = max(int(base_interval), 1)
 
-            # Safety clamp.
-            interval_minutes = max(int(interval_minutes), 1)
+            quota_headroom_ratio: float | None = None
+            quota_headroom_raw = source_settings.get("quota_headroom_ratio")
+            if quota_headroom_raw is not None:
+                try:
+                    quota_headroom_ratio = float(quota_headroom_raw)
+                except Exception:
+                    quota_headroom_ratio = None
 
-            job_id = f"sync_{connection_id}"
+            voi_priority: float | None = None
+            voi_raw = source_settings.get("voi_priority")
+            if voi_raw is not None:
+                try:
+                    voi_priority = float(voi_raw)
+                except Exception:
+                    voi_priority = None
+
+            if is_world_source:
+                freshness_slo = resolve_freshness_slo_minutes(
+                    str(connector_type),
+                    fallback=int(settings.connector_health_sync_slo_minutes),
+                )
+                cadence = compute_cadence_decision(
+                    connector_type=str(connector_type),
+                    last_sync_at=row["last_sync_at"],
+                    default_interval_minutes=base_interval,
+                    freshness_slo_minutes=freshness_slo,
+                    quota_headroom_ratio=quota_headroom_ratio,
+                    voi_priority=voi_priority,
+                )
+                interval_minutes = cadence.interval_minutes
+                catchup_mode = cadence.catchup_mode
+                freshness_lag_minutes = cadence.freshness_lag_minutes
+                cadence_reasons = list(cadence.reason_codes)
+                sync_job_type = SyncJobType.CONTINUOUS.value
+                job_id = f"world_sync_{connection_id}"
+            else:
+                interval_minutes = base_interval
+                catchup_mode = False
+                freshness_lag_minutes = None
+                cadence_reasons = ["legacy_schedule"]
+                sync_job_type = SyncJobType.SCHEDULED.value
+                job_id = f"sync_{connection_id}"
+
             desired_job_ids.add(job_id)
+            jitter_seconds = (
+                0
+                if catchup_mode
+                else abs(hash(f"{organization_id}:{connection_id}")) % max(1, min(300, interval_minutes * 60))
+            )
+            first_run_time = datetime.utcnow() + timedelta(seconds=jitter_seconds)
 
             async def sync_job(
                 _connection_id: str = connection_id,
                 _organization_id: str = organization_id,
                 _connector_type: str = connector_type,
                 _interval_minutes: int = interval_minutes,
+                _is_world_source: bool = is_world_source,
+                _sync_job_type: str = sync_job_type,
+                _catchup_mode: bool = catchup_mode,
+                _freshness_lag_minutes: int | None = freshness_lag_minutes,
+                _cadence_reasons: list[str] = cadence_reasons,
+                _quota_headroom_ratio: float | None = quota_headroom_ratio,
+                _voi_priority: float | None = voi_priority,
             ) -> None:
                 try:
                     from src.jobs.queue import EnqueueJobRequest, enqueue_job
 
-                    bucket = int(datetime.utcnow().timestamp()) // max(60, _interval_minutes * 60)
-                    idempotency_key = f"scheduled_sync:{_connection_id}:{bucket}"
+                    if _is_world_source:
+                        budget_ok = await self._tenant_budget_allows_world_ingest(
+                            organization_id=str(_organization_id),
+                            queued_limit=queued_budget,
+                            running_limit=running_budget,
+                        )
+                        if not budget_ok:
+                            logger.warning(
+                                "Skipping world continuous ingest due to tenant budget limits",
+                                organization_id=_organization_id,
+                                connection_id=_connection_id,
+                                connector_type=_connector_type,
+                                queued_limit=queued_budget,
+                                running_limit=running_budget,
+                            )
+                            return
+
+                        idempotency_key = build_continuous_ingest_idempotency_key(
+                            connection_id=str(_connection_id),
+                            interval_minutes=int(_interval_minutes),
+                        )
+                        payload = {
+                            "connection_id": _connection_id,
+                            "organization_id": _organization_id,
+                            "scheduled": True,
+                            "sync_job_type": _sync_job_type,
+                            "sync_params": {
+                                "continuous_ingest": True,
+                                "catchup_mode": bool(_catchup_mode),
+                                "cadence_reasons": list(_cadence_reasons),
+                                "scheduled_interval_minutes": int(_interval_minutes),
+                                "freshness_lag_minutes": _freshness_lag_minutes,
+                                "quota_headroom_ratio": _quota_headroom_ratio,
+                                "voi_priority": _voi_priority,
+                            },
+                        }
+                    else:
+                        bucket = int(datetime.utcnow().timestamp()) // max(60, _interval_minutes * 60)
+                        idempotency_key = f"scheduled_sync:{_connection_id}:{bucket}"
+                        payload = {
+                            "connection_id": _connection_id,
+                            "organization_id": _organization_id,
+                            "scheduled": True,
+                            "sync_job_type": _sync_job_type,
+                        }
 
                     await enqueue_job(
                         EnqueueJobRequest(
                             organization_id=_organization_id,
                             job_type="connector.sync",
-                            payload={
-                                "connection_id": _connection_id,
-                                "organization_id": _organization_id,
-                                "scheduled": True,
-                            },
-                            priority=0,
+                            payload=payload,
+                            priority=1 if _catchup_mode else 0,
                             max_attempts=3,
                             idempotency_key=idempotency_key,
                             resource_key=f"connection:{_connection_id}",
@@ -522,13 +789,16 @@ class ConnectorScheduler:
                 replace_existing=True,
                 coalesce=True,
                 max_instances=1,
+                next_run_time=first_run_time,
             )
             scheduled += 1
+            if is_world_source:
+                world_scheduled += 1
 
         # Remove stale scheduled jobs that no longer exist in DB.
         removed = 0
         for job in self._scheduler.get_jobs():
-            if not job.id.startswith("sync_"):
+            if not job.id.startswith(("sync_", "world_sync_")):
                 continue
             if job.id in desired_job_ids:
                 continue
@@ -542,8 +812,45 @@ class ConnectorScheduler:
             "Reconciled connection schedules",
             scheduled=scheduled,
             removed=removed,
+            world_scheduled=world_scheduled,
         )
-        return {"scheduled": scheduled, "removed": removed}
+        return {"scheduled": scheduled, "removed": removed, "world_scheduled": world_scheduled}
+
+    async def _tenant_budget_allows_world_ingest(
+        self,
+        *,
+        organization_id: str,
+        queued_limit: int,
+        running_limit: int,
+    ) -> bool:
+        """
+        Enforce noisy-neighbor protection for continuous world ingestion jobs.
+        """
+        from src.db.client import get_db_pool
+        from src.db.rls import rls_context
+
+        with rls_context(None, is_internal=True):
+            pool = await get_db_pool()
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    """
+                    SELECT
+                        COUNT(1) FILTER (WHERE status = 'queued') AS queued_jobs,
+                        COUNT(1) FILTER (WHERE status = 'running') AS running_jobs
+                    FROM background_job
+                    WHERE organization_id = $1
+                      AND job_type = 'connector.sync'
+                      AND status IN ('queued', 'running')
+                      AND COALESCE(payload->>'sync_job_type', '') = 'continuous'
+                    """,
+                    organization_id,
+                )
+
+        if row is None:
+            return True
+        queued_jobs = int(row["queued_jobs"] or 0)
+        running_jobs = int(row["running_jobs"] or 0)
+        return queued_jobs < int(queued_limit) and running_jobs < int(running_limit)
 
     async def shutdown(self) -> None:
         """Shutdown the scheduler gracefully."""
@@ -1130,6 +1437,7 @@ class ConnectorScheduler:
         from src.orchestrator.graph import run_intelligence_extraction
         from src.connectors.sync_events import emit_sync_progress
         from src.connectors.normalization import normalize_record_for_pipeline
+        from src.connectors.scheduling.checkpoints import apply_checkpoint_contract
         from src.config import get_settings
         from src.streaming import get_kafka_producer
         from src.ingestion.priority import compute_ingest_priority
@@ -1142,6 +1450,17 @@ class ConnectorScheduler:
         stream_errors: dict[str, str] = {}
         last_progress_emit = 0  # Track when we last emitted progress
         last_progress_time = datetime.utcnow()  # Track time for periodic updates
+        run_id = str((job.sync_params or {}).get("source_sync_run_id") or job.job_id)
+        run_kind = str((job.sync_params or {}).get("run_kind") or job.job_type.value)
+
+        def _cursor_with_contract(stream_name: str, cursor_state: dict[str, Any]) -> dict[str, Any]:
+            return apply_checkpoint_contract(
+                cursor_state=cursor_state,
+                run_id=run_id,
+                run_kind=run_kind,
+                watermark=datetime.now(timezone.utc),
+                stream_name=stream_name,
+            )
 
         # Get connector
         from src.connectors.bootstrap import ensure_connectors_registered
@@ -1244,7 +1563,10 @@ class ConnectorScheduler:
                 await state_repo.upsert_stream_state(
                     connection_id=job.connection_id,
                     stream_name=stream.stream_name,
-                    cursor_state=state.get_cursor(stream.stream_name),
+                    cursor_state=_cursor_with_contract(
+                        stream.stream_name,
+                        state.get_cursor(stream.stream_name),
+                    ),
                     status="syncing",
                     last_sync_started_at=datetime.utcnow(),
                 )
@@ -1283,19 +1605,36 @@ class ConnectorScheduler:
                                     source_type=source_type,
                                     job_type=job.job_type.value,
                                 )
-                                await producer.produce_raw_event(
+                                trace_material = (
+                                    f"{config.organization_id}:{job.connector_type}:"
+                                    f"{stream.stream_name}:{record.record_id}:{run_id}:{record.raw_data_hash or ''}"
+                                )
+                                trace_id = hashlib.sha256(trace_material.encode("utf-8")).hexdigest()[:32]
+                                await producer.produce_observation_raw_event(
                                     organization_id=config.organization_id,
                                     source_type=source_type,
-                                    event_type="connector.record",
-                                    payload={
+                                    observation_type="connector.record",
+                                    content={
                                         "record": record.model_dump(),
                                         "connector_type": job.connector_type,
                                         "connection_id": config.connection_id,
+                                        "stream_name": stream.stream_name,
+                                        "record_type": record.record_type.value,
                                         "job_type": job.job_type.value,
-                                        "provider_config": config.provider_config or {},
                                     },
-                                    source_id=record.record_id,
-                                    priority=priority,
+                                    source_ref=record.record_id,
+                                    tags=["connector", str(job.connector_type), str(stream.stream_name)],
+                                    source_metadata={
+                                        "connector_type": job.connector_type,
+                                        "connection_id": config.connection_id,
+                                        "stream_name": stream.stream_name,
+                                        "record_type": record.record_type.value,
+                                        "job_type": job.job_type.value,
+                                        "priority": priority,
+                                    },
+                                    ingest_run_id=run_id,
+                                    trace_id=trace_id,
+                                    deterministic_key=trace_material,
                                 )
                                 logger.debug(
                                     "Record enqueued to Kafka pipeline",
@@ -1352,7 +1691,10 @@ class ConnectorScheduler:
                         await state_repo.upsert_stream_state(
                             connection_id=job.connection_id,
                             stream_name=stream.stream_name,
-                            cursor_state=state.get_cursor(stream.stream_name),
+                            cursor_state=_cursor_with_contract(
+                                stream.stream_name,
+                                state.get_cursor(stream.stream_name),
+                            ),
                             records_synced=state.get_stream_state(stream.stream_name).records_synced,
                             bytes_synced=state.get_stream_state(stream.stream_name).bytes_synced,
                         )
@@ -1379,7 +1721,10 @@ class ConnectorScheduler:
                 await state_repo.upsert_stream_state(
                     connection_id=job.connection_id,
                     stream_name=stream.stream_name,
-                    cursor_state=state.get_cursor(stream.stream_name),
+                    cursor_state=_cursor_with_contract(
+                        stream.stream_name,
+                        state.get_cursor(stream.stream_name),
+                    ),
                     status="completed",
                     records_synced=state.get_stream_state(stream.stream_name).records_synced,
                     bytes_synced=state.get_stream_state(stream.stream_name).bytes_synced,
@@ -1398,7 +1743,10 @@ class ConnectorScheduler:
                 await state_repo.upsert_stream_state(
                     connection_id=job.connection_id,
                     stream_name=stream.stream_name,
-                    cursor_state=state.get_cursor(stream.stream_name),
+                    cursor_state=_cursor_with_contract(
+                        stream.stream_name,
+                        state.get_cursor(stream.stream_name),
+                    ),
                     status="failed",
                     error_message=str(e),
                     last_sync_completed_at=datetime.utcnow(),

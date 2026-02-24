@@ -52,6 +52,7 @@ jobs:
           KAFKA_BOOTSTRAP_WAIT_TIMEOUT: ${{ inputs.environment_name == 'staging' && '5m' || '20m' }}
           MIN_EKS_NODE_COUNT: ${{ inputs.environment_name == 'staging' && '2' || '3' }}
           REQUIRE_INGRESS_CONTROLLER: ${{ inputs.environment_name == 'staging' && 'false' || 'true' }}
+          AUTO_ROLLBACK_ON_FAILED_ROLLOUT: "true"
 
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY_PREFIX: ${{ vars.ECR_REPOSITORY_PREFIX }}
@@ -106,6 +107,7 @@ jobs:
           KRAKEN_API_SECRET: ${{ secrets.KRAKEN_API_SECRET }}
           BENZINGA_API_KEY: ${{ secrets.BENZINGA_API_KEY }}
           NEWSAPI_API_KEY: ${{ secrets.NEWSAPI_API_KEY }}
+          WORLD_NEWS_API_KEY: ${{ secrets.WORLD_NEWS_API_KEY }}
           FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
           PLAID_CLIENT_ID: ${{ secrets.PLAID_CLIENT_ID }}
           PLAID_SECRET: ${{ secrets.PLAID_SECRET }}

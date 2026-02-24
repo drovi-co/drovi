@@ -35,11 +35,15 @@ async def connector_request(
     """
     definition = get_connector_definition(connector.connector_type)
     http_retry = definition.http_retry if definition else None
+    circuit_breaker = definition.circuit_breaker if definition else None
 
     max_attempts = http_retry.max_attempts if http_retry else 5
     base_backoff = http_retry.base_backoff_seconds if http_retry else 0.5
     max_backoff = http_retry.max_backoff_seconds if http_retry else 8.0
     retry_statuses = http_retry.retry_statuses if http_retry else None
+    circuit_enabled = circuit_breaker.enabled if circuit_breaker else True
+    circuit_threshold = circuit_breaker.failure_threshold if circuit_breaker else 5
+    circuit_reset_seconds = circuit_breaker.reset_seconds if circuit_breaker else 60.0
 
     return await request_with_retry(
         client,
@@ -53,6 +57,9 @@ async def connector_request(
         rate_limit_per_minute=connector.get_rate_limit_per_minute(),
         metrics_connector_type=connector.connector_type,
         metrics_operation=operation,
+        circuit_breaker_key=f"provider:{connector.connector_type}",
+        circuit_breaker_enabled=circuit_enabled,
+        circuit_breaker_threshold=circuit_threshold,
+        circuit_breaker_reset_seconds=circuit_reset_seconds,
         **kwargs,
     )
-

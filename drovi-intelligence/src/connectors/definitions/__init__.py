@@ -6,6 +6,7 @@ bootstrap. The registry is imported lazily from the accessors below.
 
 from src.connectors.definitions.models import (
     BackfillDefaults,
+    CircuitBreakerPolicy,
     ConnectorDefinition,
     HttpRetryPolicy,
     RequiredSetting,
@@ -25,6 +26,7 @@ def list_connector_definitions():
 
 __all__ = [
     "BackfillDefaults",
+    "CircuitBreakerPolicy",
     "ConnectorDefinition",
     "HttpRetryPolicy",
     "RequiredSetting",

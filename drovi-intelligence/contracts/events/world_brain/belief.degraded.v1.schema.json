@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "BeliefDegradedPayload": {
+      "properties": {
+        "belief_id": {
+          "title": "Belief Id",
+          "type": "string"
+        },
+        "contradiction_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Contradiction Ids",
+          "type": "array"
+        },
+        "degradation_reason": {
+          "title": "Degradation Reason",
+          "type": "string"
+        },
+        "degraded_at": {
+          "format": "date-time",
+          "title": "Degraded At",
+          "type": "string"
+        },
+        "degraded_state": {
+          "title": "Degraded State",
+          "type": "string"
+        },
+        "previous_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous State"
+        }
+      },
+      "required": [
+        "belief_id",
+        "degraded_state",
+        "degradation_reason",
+        "degraded_at"
+      ],
+      "title": "BeliefDegradedPayload",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "const": "belief.degraded.v1",
+      "default": "belief.degraded.v1",
+      "title": "Event Type",
+      "type": "string"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "organization_id": {
+      "title": "Organization Id",
+      "type": "string"
+    },
+    "payload": {
+      "$ref": "#/$defs/BeliefDegradedPayload"
+    },
+    "producer": {
+      "default": "drovi-intelligence",
+      "title": "Producer",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "organization_id",
+    "event_id",
+    "occurred_at",
+    "payload"
+  ],
+  "title": "BeliefDegradedEvent",
+  "type": "object"
+}

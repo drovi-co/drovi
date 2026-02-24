@@ -72,7 +72,9 @@ export type AnalyticsEvent =
   | "dashboard_viewed"
   | "widget_interacted"
   // UX observability
-  | "route_performance_sampled";
+  | "route_performance_sampled"
+  | "web_vitals_sampled"
+  | "web_vitals_budget_breached";
 
 /**
  * Properties for analytics events.
@@ -114,6 +116,17 @@ export interface AnalyticsEventProperties {
   routeTo?: string;
   routeTransitionMs?: number;
   navigationKind?: "initial_load" | "route_change";
+  lcpMs?: number | null;
+  ttiMs?: number | null;
+  interactionLatencyMs?: number | null;
+  interactionP95Ms?: number | null;
+  interactionCount?: number;
+  performanceBudgetStatus?: "within_budget" | "breached";
+  performanceSampleTrigger?: "settled" | "visibility_hidden" | "pagehide";
+  breachedMetrics?: string[];
+  lcpBudgetMs?: number;
+  ttiBudgetMs?: number;
+  interactionBudgetMs?: number;
 
   // Settings properties
   settingName?: string;

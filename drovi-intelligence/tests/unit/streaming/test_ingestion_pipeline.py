@@ -53,6 +53,47 @@ def test_normalize_raw_event_payload_connector_record():
     assert normalized_event.ingest["source_fingerprint"]
 
 
+def test_normalize_raw_event_payload_world_observation_raw_contract():
+    payload = {
+        "event_type": "observation.raw.v1",
+        "organization_id": "org-1",
+        "event_id": "evt-raw-1",
+        "payload": {
+            "observation_id": "obs-1",
+            "source_type": "news_api",
+            "source_ref": "article-1",
+            "observation_type": "connector.record",
+            "content": {
+                "title": "New export controls announced",
+                "summary": "Regulators announced new controls across regions.",
+                "url": "https://example.com/news/1",
+                "publish_date": "2026-02-23T10:00:00Z",
+            },
+            "observed_at": "2026-02-23T10:00:00Z",
+            "artifact_id": "obsraw-1",
+            "artifact_sha256": "sha-1",
+            "artifact_storage_path": "/tmp/obsraw-1.json",
+            "ingest_run_id": "run-1",
+            "source_metadata": {
+                "source_key": "worldnewsapi",
+                "connector_type": "worldnewsapi",
+                "job_type": "scheduled",
+            },
+            "trace_id": "trace-1",
+            "tags": ["news", "world-events"],
+        },
+    }
+
+    normalized_event = normalize_raw_event_payload(payload)
+    assert normalized_event is not None
+    assert normalized_event.source_type == "news_api"
+    assert "Headline: New export controls announced" in normalized_event.normalized["content"]
+    assert normalized_event.ingest["evidence_artifact_id"] == "obsraw-1"
+    assert normalized_event.ingest["trace_id"] == "trace-1"
+    assert normalized_event.normalized["metadata"]["world_canonical"]["family"] == "news"
+    assert normalized_event.normalized["metadata"]["world_observation_raw"]["observation_id"] == "obs-1"
+
+
 @pytest.mark.asyncio
 async def test_enrich_normalized_payload_vip_priority(monkeypatch):
     class FakeContact:

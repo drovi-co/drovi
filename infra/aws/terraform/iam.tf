@@ -56,6 +56,26 @@ data "aws_iam_policy_document" "drovi_app_runtime" {
   }
 
   statement {
+    sid = "LakehouseBucketAccess"
+
+    actions = [
+      "s3:AbortMultipartUpload",
+      "s3:DeleteObject",
+      "s3:GetBucketLocation",
+      "s3:GetObject",
+      "s3:ListBucket",
+      "s3:ListBucketMultipartUploads",
+      "s3:ListBucketVersions",
+      "s3:PutObject",
+    ]
+
+    resources = [
+      "arn:aws:s3:::${module.data.lakehouse_bucket_name}",
+      "arn:aws:s3:::${module.data.lakehouse_bucket_name}/*",
+    ]
+  }
+
+  statement {
     sid = "EvidenceKmsAccess"
 
     actions = [
@@ -67,6 +87,37 @@ data "aws_iam_policy_document" "drovi_app_runtime" {
     ]
 
     resources = [module.data.kms_key_arn]
+  }
+
+  statement {
+    sid = "SchemaRegistryAccess"
+
+    actions = [
+      "glue:CreateSchema",
+      "glue:GetRegistry",
+      "glue:GetSchema",
+      "glue:GetSchemaByDefinition",
+      "glue:RegisterSchemaVersion",
+      "glue:UpdateSchema",
+      "glue:ListSchemas",
+      "glue:ListSchemaVersions",
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "WorldBrainManagedSecretRead"
+
+    actions = [
+      "secretsmanager:DescribeSecret",
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:ListSecretVersionIds",
+    ]
+
+    resources = [
+      "arn:aws:secretsmanager:*:*:secret:${local.name_prefix}/world-brain/*",
+    ]
   }
 }
 

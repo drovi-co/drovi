@@ -1,0 +1,332 @@
+catalog_version: "1.0"
+authoritative_inventory_path: "../DROVI_WORLD_BRAIN_INGESTION_MATRIX.md"
+onboarding_checklist_template: "config/source_onboarding_checklist.md"
+
+sources:
+  - source_key: "sec_edgar"
+    display_name: "SEC EDGAR"
+    tier: "tier0"
+    classification: "authoritative"
+    provider_type: "regulatory_api"
+    domains: ["filings", "public_companies", "finance"]
+    jurisdictions: ["us"]
+    tenancy: "drovi_managed"
+    credentials:
+      mode: "none"
+      required_env_vars: []
+      customer_supplied_supported: false
+    licensing:
+      data_usage_license: "public_federal"
+      redistribution_allowed: true
+      pii_risk: "low"
+      terms_url: "https://www.sec.gov/privacy"
+    sla:
+      freshness_slo_minutes: 60
+      availability_slo: 0.995
+      expected_latency_seconds: 10
+      backfill_latency_hours: 24
+    backfill_policy:
+      supported: true
+      default_window_days: 365
+      max_window_days: 3650
+      checkpoint_strategy: "filing_date_and_accession_id"
+      replayable: true
+    cadence:
+      policy: "warm"
+      default_interval_minutes: 30
+      min_interval_minutes: 10
+      max_interval_minutes: 120
+      catchup_interval_minutes: 5
+      backlog_multiplier: 2.0
+      voi_priority: 0.7
+    onboarding:
+      owner_team: "world-intel-platform"
+      runbook_path: "config/source_onboarding_checklist.md"
+    tags: ["tier0", "regulatory", "audit-grade"]
+
+  - source_key: "federal_register"
+    display_name: "Federal Register"
+    tier: "tier0"
+    classification: "authoritative"
+    provider_type: "government_api"
+    domains: ["regulation", "policy", "enforcement"]
+    jurisdictions: ["us"]
+    tenancy: "drovi_managed"
+    credentials:
+      mode: "none"
+      required_env_vars: []
+      customer_supplied_supported: false
+    licensing:
+      data_usage_license: "public_federal"
+      redistribution_allowed: true
+      pii_risk: "low"
+      terms_url: "https://www.federalregister.gov/"
+    sla:
+      freshness_slo_minutes: 120
+      availability_slo: 0.995
+      expected_latency_seconds: 20
+      backfill_latency_hours: 24
+    backfill_policy:
+      supported: true
+      default_window_days: 365
+      max_window_days: 3650
+      checkpoint_strategy: "publication_date_and_document_number"
+      replayable: true
+    cadence:
+      policy: "warm"
+      default_interval_minutes: 60
+      min_interval_minutes: 15
+      max_interval_minutes: 180
+      catchup_interval_minutes: 10
+      backlog_multiplier: 2.0
+      voi_priority: 0.6
+    onboarding:
+      owner_team: "legal-intel"
+      runbook_path: "config/source_onboarding_checklist.md"
+    tags: ["tier0", "regulation"]
+
+  - source_key: "fred"
+    display_name: "FRED"
+    tier: "tier0"
+    classification: "authoritative"
+    provider_type: "macroeconomic_api"
+    domains: ["macroeconomics", "rates", "labor", "gdp"]
+    jurisdictions: ["us", "global"]
+    tenancy: "drovi_managed_or_customer_key"
+    credentials:
+      mode: "api_key"
+      required_env_vars: ["FRED_API_KEY"]
+      customer_supplied_supported: true
+    licensing:
+      data_usage_license: "provider_terms"
+      redistribution_allowed: false
+      pii_risk: "none"
+      terms_url: "https://fred.stlouisfed.org/legal/"
+    sla:
+      freshness_slo_minutes: 240
+      availability_slo: 0.99
+      expected_latency_seconds: 10
+      backfill_latency_hours: 48
+    backfill_policy:
+      supported: true
+      default_window_days: 1825
+      max_window_days: 7300
+      checkpoint_strategy: "series_id_and_observation_date"
+      replayable: true
+    cadence:
+      policy: "cold"
+      default_interval_minutes: 180
+      min_interval_minutes: 60
+      max_interval_minutes: 720
+      catchup_interval_minutes: 30
+      backlog_multiplier: 2.0
+      voi_priority: 0.4
+    onboarding:
+      owner_team: "macro-intel"
+      runbook_path: "config/source_onboarding_checklist.md"
+    tags: ["tier0", "macro"]
+
+  - source_key: "crossref"
+    display_name: "Crossref"
+    tier: "tier0"
+    classification: "authoritative"
+    provider_type: "research_api"
+    domains: ["research", "academic_publications"]
+    jurisdictions: ["global"]
+    tenancy: "drovi_managed"
+    credentials:
+      mode: "none"
+      required_env_vars: []
+      customer_supplied_supported: false
+    licensing:
+      data_usage_license: "provider_terms"
+      redistribution_allowed: false
+      pii_risk: "low"
+      terms_url: "https://www.crossref.org/"
+    sla:
+      freshness_slo_minutes: 360
+      availability_slo: 0.99
+      expected_latency_seconds: 10
+      backfill_latency_hours: 72
+    backfill_policy:
+      supported: true
+      default_window_days: 3650
+      max_window_days: 10950
+      checkpoint_strategy: "doi_and_updated_timestamp"
+      replayable: true
+    cadence:
+      policy: "cold"
+      default_interval_minutes: 240
+      min_interval_minutes: 60
+      max_interval_minutes: 720
+      catchup_interval_minutes: 30
+      backlog_multiplier: 2.0
+      voi_priority: 0.3
+    onboarding:
+      owner_team: "research-intel"
+      runbook_path: "config/source_onboarding_checklist.md"
+    tags: ["tier0", "research"]
+
+  - source_key: "cisa_kev"
+    display_name: "CISA Known Exploited Vulnerabilities"
+    tier: "tier0"
+    classification: "authoritative"
+    provider_type: "vulnerability_feed"
+    domains: ["cybersecurity", "vulnerabilities", "safety"]
+    jurisdictions: ["us", "global"]
+    tenancy: "drovi_managed"
+    credentials:
+      mode: "none"
+      required_env_vars: []
+      customer_supplied_supported: false
+    licensing:
+      data_usage_license: "public_federal"
+      redistribution_allowed: true
+      pii_risk: "none"
+      terms_url: "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+    sla:
+      freshness_slo_minutes: 180
+      availability_slo: 0.995
+      expected_latency_seconds: 10
+      backfill_latency_hours: 24
+    backfill_policy:
+      supported: true
+      default_window_days: 3650
+      max_window_days: 10950
+      checkpoint_strategy: "cve_id_and_date_added"
+      replayable: true
+    cadence:
+      policy: "warm"
+      default_interval_minutes: 90
+      min_interval_minutes: 15
+      max_interval_minutes: 240
+      catchup_interval_minutes: 10
+      backlog_multiplier: 2.0
+      voi_priority: 0.75
+    onboarding:
+      owner_team: "security-intel"
+      runbook_path: "config/source_onboarding_checklist.md"
+    tags: ["tier0", "cyber", "vulnerability"]
+
+  - source_key: "worldnewsapi"
+    display_name: "World News API"
+    tier: "tier1"
+    classification: "commercial"
+    provider_type: "news_api"
+    domains: ["world_news", "geopolitics", "markets"]
+    jurisdictions: ["global"]
+    tenancy: "drovi_managed_or_customer_key"
+    credentials:
+      mode: "api_key"
+      required_env_vars: ["WORLD_NEWS_API_KEY"]
+      customer_supplied_supported: true
+    licensing:
+      data_usage_license: "provider_terms"
+      redistribution_allowed: false
+      pii_risk: "low"
+      terms_url: "https://worldnewsapi.com/docs/"
+    sla:
+      freshness_slo_minutes: 15
+      availability_slo: 0.99
+      expected_latency_seconds: 5
+      backfill_latency_hours: 24
+    backfill_policy:
+      supported: true
+      default_window_days: 90
+      max_window_days: 3650
+      checkpoint_strategy: "query_shard_offset_and_publish_time"
+      replayable: true
+    cadence:
+      policy: "hot"
+      default_interval_minutes: 5
+      min_interval_minutes: 1
+      max_interval_minutes: 30
+      catchup_interval_minutes: 1
+      backlog_multiplier: 3.0
+      voi_priority: 0.9
+    onboarding:
+      owner_team: "world-intel-platform"
+      runbook_path: "config/source_onboarding_checklist.md"
+    tags: ["tier1", "news", "world-events"]
+
+  - source_key: "commercial_premium"
+    display_name: "Commercial Premium Feed Interface"
+    tier: "tier1"
+    classification: "commercial"
+    provider_type: "commercial_api_gateway"
+    domains: ["markets", "news", "legal", "specialized_datasets"]
+    jurisdictions: ["global"]
+    tenancy: "customer_supplied_credentials"
+    credentials:
+      mode: "api_key"
+      required_env_vars: []
+      customer_supplied_supported: true
+    licensing:
+      data_usage_license: "customer_provider_terms"
+      redistribution_allowed: false
+      pii_risk: "medium"
+      terms_url: null
+    sla:
+      freshness_slo_minutes: 15
+      availability_slo: 0.99
+      expected_latency_seconds: 3
+      backfill_latency_hours: 24
+    backfill_policy:
+      supported: true
+      default_window_days: 90
+      max_window_days: 3650
+      checkpoint_strategy: "provider_cursor_or_time_window"
+      replayable: true
+    cadence:
+      policy: "warm"
+      default_interval_minutes: 15
+      min_interval_minutes: 3
+      max_interval_minutes: 60
+      catchup_interval_minutes: 2
+      backlog_multiplier: 2.0
+      voi_priority: 0.8
+    onboarding:
+      owner_team: "world-intel-platform"
+      runbook_path: "config/source_onboarding_checklist.md"
+    tags: ["tier1", "commercial", "tenant-credentials"]
+
+  - source_key: "rss_osint"
+    display_name: "RSS/OSINT Aggregation"
+    tier: "tier2"
+    classification: "osint"
+    provider_type: "rss_feed"
+    domains: ["news", "industry_updates", "opinion"]
+    jurisdictions: ["global"]
+    tenancy: "customer_feed"
+    credentials:
+      mode: "rss"
+      required_env_vars: []
+      customer_supplied_supported: true
+    licensing:
+      data_usage_license: "source_specific_terms"
+      redistribution_allowed: false
+      pii_risk: "medium"
+      terms_url: null
+    sla:
+      freshness_slo_minutes: 60
+      availability_slo: 0.95
+      expected_latency_seconds: 30
+      backfill_latency_hours: 72
+    backfill_policy:
+      supported: true
+      default_window_days: 30
+      max_window_days: 365
+      checkpoint_strategy: "feed_url_and_item_guid"
+      replayable: true
+    cadence:
+      policy: "cold"
+      default_interval_minutes: 60
+      min_interval_minutes: 10
+      max_interval_minutes: 360
+      catchup_interval_minutes: 5
+      backlog_multiplier: 2.0
+      voi_priority: 0.35
+    onboarding:
+      owner_team: "customer-success"
+      runbook_path: "config/source_onboarding_checklist.md"
+    tags: ["tier2", "osint", "high-variance"]

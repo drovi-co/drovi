@@ -11,6 +11,20 @@ resource "aws_kms_alias" "data" {
   target_key_id = aws_kms_key.data.key_id
 }
 
+locals {
+  trusted_security_group_ids = toset(compact(var.trusted_security_group_ids))
+  glue_registry_name = (
+    trimspace(var.glue_schema_registry_name) != ""
+    ? trimspace(var.glue_schema_registry_name)
+    : "${var.name_prefix}-world-brain"
+  )
+  world_brain_managed_secret_names = (
+    var.enable_world_brain_managed_secrets
+    ? toset([for item in var.world_brain_managed_secret_names : trimspace(item) if trimspace(item) != ""])
+    : toset([])
+  )
+}
+
 resource "aws_ecr_repository" "repo" {
   for_each = var.ecr_repositories
 
@@ -144,6 +158,95 @@ resource "aws_s3_bucket_policy" "evidence_tls_only" {
   policy = data.aws_iam_policy_document.evidence_tls_only.json
 }
 
+resource "aws_s3_bucket" "lakehouse" {
+  bucket = var.lakehouse_bucket_name
+
+  tags = merge(var.tags, {
+    DataClass = "lakehouse"
+  })
+}
+
+resource "aws_s3_bucket_versioning" "lakehouse" {
+  bucket = aws_s3_bucket.lakehouse.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "lakehouse" {
+  bucket = aws_s3_bucket.lakehouse.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "lakehouse" {
+  bucket = aws_s3_bucket.lakehouse.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.data.arn
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "lakehouse" {
+  bucket = aws_s3_bucket.lakehouse.id
+
+  rule {
+    id     = "lakehouse-hot-warm-cold"
+    status = "Enabled"
+
+    transition {
+      days          = max(1, var.lakehouse_hot_retention_days)
+      storage_class = "STANDARD_IA"
+    }
+
+    transition {
+      days          = max(var.lakehouse_hot_retention_days + 1, var.lakehouse_warm_retention_days)
+      storage_class = "GLACIER"
+    }
+
+    expiration {
+      days = max(var.lakehouse_warm_retention_days + 1, var.lakehouse_cold_retention_days)
+    }
+  }
+}
+
+data "aws_iam_policy_document" "lakehouse_tls_only" {
+  statement {
+    sid    = "DenyInsecureTransport"
+    effect = "Deny"
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    actions = ["s3:*"]
+
+    resources = [
+      aws_s3_bucket.lakehouse.arn,
+      "${aws_s3_bucket.lakehouse.arn}/*",
+    ]
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "lakehouse_tls_only" {
+  bucket = aws_s3_bucket.lakehouse.id
+  policy = data.aws_iam_policy_document.lakehouse_tls_only.json
+}
+
 resource "aws_security_group" "rds" {
   name        = "${var.name_prefix}-rds-sg"
   description = "RDS access for drovi-stack"
@@ -219,6 +322,54 @@ resource "aws_security_group" "msk" {
   }
 
   tags = var.tags
+}
+
+resource "aws_security_group_rule" "rds_from_trusted_sg" {
+  for_each = local.trusted_security_group_ids
+
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.rds.id
+  source_security_group_id = each.value
+  description              = "PostgreSQL access from trusted security group"
+}
+
+resource "aws_security_group_rule" "redis_from_trusted_sg" {
+  for_each = local.trusted_security_group_ids
+
+  type                     = "ingress"
+  from_port                = 6379
+  to_port                  = 6379
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.redis.id
+  source_security_group_id = each.value
+  description              = "Redis access from trusted security group"
+}
+
+resource "aws_security_group_rule" "msk_tls_from_trusted_sg" {
+  for_each = local.trusted_security_group_ids
+
+  type                     = "ingress"
+  from_port                = 9094
+  to_port                  = 9094
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.msk.id
+  source_security_group_id = each.value
+  description              = "MSK TLS access from trusted security group"
+}
+
+resource "aws_security_group_rule" "msk_scram_from_trusted_sg" {
+  for_each = local.trusted_security_group_ids
+
+  type                     = "ingress"
+  from_port                = 9096
+  to_port                  = 9096
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.msk.id
+  source_security_group_id = each.value
+  description              = "MSK SCRAM access from trusted security group"
 }
 
 resource "aws_db_subnet_group" "postgres" {
@@ -430,4 +581,28 @@ resource "aws_msk_scram_secret_association" "this" {
   secret_arn_list = [aws_secretsmanager_secret.msk_scram.arn]
 
   depends_on = [aws_secretsmanager_secret_policy.msk_secret]
+}
+
+resource "aws_glue_registry" "world_brain" {
+  count = var.enable_glue_schema_registry ? 1 : 0
+
+  registry_name = local.glue_registry_name
+  description   = "World Brain schema registry for event contracts and compatibility governance."
+
+  tags = merge(var.tags, {
+    Purpose = "world-brain-schema-registry"
+  })
+}
+
+resource "aws_secretsmanager_secret" "world_brain_provider" {
+  for_each = local.world_brain_managed_secret_names
+
+  name                    = "${var.name_prefix}/world-brain/${each.value}"
+  description             = "World Brain managed provider credential placeholder (${each.value})."
+  kms_key_id              = aws_kms_key.data.arn
+  recovery_window_in_days = 7
+
+  tags = merge(var.tags, {
+    SecretClass = "world-brain-provider"
+  })
 }

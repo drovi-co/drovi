@@ -35,8 +35,17 @@ msk_scram_username        = "drovi"
 # msk_scram_password      = "set-your-own-or-let-terraform-generate"
 
 evidence_bucket_name            = ""
+lakehouse_bucket_name           = ""
 s3_object_lock_enabled          = true
 evidence_default_retention_days = 365
+lakehouse_hot_retention_days    = 7
+lakehouse_warm_retention_days   = 30
+lakehouse_cold_retention_days   = 365
+enable_glue_schema_registry     = true
+glue_schema_registry_name       = ""
+trusted_data_plane_security_group_ids = []
+enable_world_brain_managed_secrets    = false
+world_brain_managed_secret_names      = ["worldnewsapi_api_key"]
 web_cors_origins = [
   "https://app.drovi.co",
   "https://admin.drovi.co",

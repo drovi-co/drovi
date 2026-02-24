@@ -10,11 +10,13 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import (
+    BigInteger,
     JSON,
     Boolean,
     Column,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Integer,
     LargeBinary,
@@ -81,6 +83,7 @@ class Connection(Base):
     oauth_token = relationship("OAuthToken", back_populates="connection", uselist=False)
     sync_states = relationship("SyncState", back_populates="connection")
     job_history = relationship("SyncJobHistory", back_populates="connection")
+    source_sync_runs = relationship("SourceSyncRun", back_populates="connection")
 
     def __repr__(self) -> str:
         return f"<Connection {self.connector_type}:{self.name} ({self.status})>"
@@ -235,6 +238,59 @@ class SyncJobHistory(Base):
 
     def __repr__(self) -> str:
         return f"<SyncJobHistory {self.job_type} ({self.status})>"
+
+
+class SourceSyncRun(Base):
+    """
+    Immutable-ish run ledger for continuous source ingest execution.
+
+    Captures freshness lag, checkpoint deltas, retry class, and cost metadata.
+    """
+
+    __tablename__ = "source_sync_run"
+
+    id = Column(String, primary_key=True)
+    organization_id = Column(String(100), nullable=False, index=True)
+    connection_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("connections.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    connector_type = Column(String(64), nullable=False, index=True)
+    run_kind = Column(String(32), nullable=False, default="continuous")
+    status = Column(String(32), nullable=False, default="running", index=True)
+    retry_class = Column(String(32), nullable=True)
+
+    scheduled_interval_minutes = Column(Integer, nullable=True)
+    freshness_lag_minutes = Column(Integer, nullable=True)
+    quota_headroom_ratio = Column(Float, nullable=True)
+    voi_priority = Column(Float, nullable=True)
+
+    records_synced = Column(Integer, nullable=False, default=0)
+    bytes_synced = Column(BigInteger, nullable=False, default=0)
+    cost_units = Column(Float, nullable=True)
+
+    checkpoint_before = Column(JSON, nullable=False, default=dict)
+    checkpoint_after = Column(JSON, nullable=False, default=dict)
+    watermark_before = Column(DateTime(timezone=True), nullable=True)
+    watermark_after = Column(DateTime(timezone=True), nullable=True)
+    run_metadata = Column("metadata", JSON, nullable=False, default=dict)
+
+    started_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    duration_seconds = Column(Integer, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    connection = relationship("Connection", back_populates="source_sync_runs")
+
+    def __repr__(self) -> str:
+        return (
+            f"<SourceSyncRun {self.connector_type}:{self.connection_id} "
+            f"({self.run_kind}/{self.status})>"
+        )
 
 
 # Alembic migration SQL for reference:

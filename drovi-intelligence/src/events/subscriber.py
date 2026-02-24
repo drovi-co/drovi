@@ -116,6 +116,17 @@ class EventSubscriber:
             channels=channels,
         )
 
+    async def subscribe_to_world_brain(
+        self,
+        organization_id: str,
+        event_types: list[EventType] | None = None,
+    ) -> None:
+        """Subscribe to the world-brain event family for an organization."""
+        from src.events.types import get_world_brain_event_types
+
+        selected = event_types or get_world_brain_event_types()
+        await self.subscribe_to_organization(organization_id, selected)
+
     async def subscribe_to_broadcast(
         self,
         event_types: list[EventType] | None = None,

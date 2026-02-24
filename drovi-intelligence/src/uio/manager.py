@@ -37,6 +37,7 @@ from src.graph.types import GraphNodeType
 from src.memory.graphiti_memory import get_graphiti_memory
 from src.orchestrator.state import UIOStatus
 from src.db.client import get_db_session
+from src.db.rls import set_rls_context
 
 from .schemas import (
     BriefDetailsCreate,
@@ -1986,121 +1987,125 @@ class UIOManager:
         ordered = sorted([uio_a_id, uio_b_id])
         uio_a_id, uio_b_id = ordered[0], ordered[1]
 
-        async with get_db_session() as session:
-            existing = await session.execute(
-                text(
-                    """
-                    SELECT id FROM uio_contradiction
-                    WHERE organization_id = :org_id
-                      AND uio_a_id = :uio_a_id
-                      AND uio_b_id = :uio_b_id
-                      AND status = 'open'
-                    LIMIT 1
-                    """
-                ),
-                {
-                    "org_id": self.organization_id,
-                    "uio_a_id": uio_a_id,
-                    "uio_b_id": uio_b_id,
-                },
-            )
-            row = existing.fetchone()
-            if row:
-                return row.id
+        set_rls_context(self.organization_id, is_internal=True)
+        try:
+            async with get_db_session() as session:
+                existing = await session.execute(
+                    text(
+                        """
+                        SELECT id FROM uio_contradiction
+                        WHERE organization_id = :org_id
+                          AND uio_a_id = :uio_a_id
+                          AND uio_b_id = :uio_b_id
+                          AND status = 'open'
+                        LIMIT 1
+                        """
+                    ),
+                    {
+                        "org_id": self.organization_id,
+                        "uio_a_id": uio_a_id,
+                        "uio_b_id": uio_b_id,
+                    },
+                )
+                row = existing.fetchone()
+                if row:
+                    return row.id
 
-            contradiction_id = str(uuid4())
-            await session.execute(
-                text(
-                    """
-                    INSERT INTO uio_contradiction (
-                        id, organization_id, uio_a_id, uio_b_id,
-                        contradiction_type, severity, status,
-                        evidence_quote, evidence_artifact_id,
-                        detected_at, created_at, updated_at
-                    ) VALUES (
-                        :id, :org_id, :uio_a_id, :uio_b_id,
-                        :contradiction_type, :severity, 'open',
-                        :evidence_quote, :evidence_artifact_id,
-                        :detected_at, :created_at, :updated_at
-                    )
-                    """
-                ),
-                {
-                    "id": contradiction_id,
-                    "org_id": self.organization_id,
-                    "uio_a_id": uio_a_id,
-                    "uio_b_id": uio_b_id,
-                    "contradiction_type": contradiction_type,
-                    "severity": severity,
-                    "evidence_quote": evidence_quote,
-                    "evidence_artifact_id": evidence_artifact_id,
-                    "detected_at": now,
-                    "created_at": now,
-                    "updated_at": now,
-                },
-            )
-
-            await session.execute(
-                text(
-                    """
-                    UPDATE unified_intelligence_object
-                    SET contradicts_existing = true,
-                        belief_state = 'contradicted',
-                        last_update_reason = 'contradiction_detected',
-                        updated_at = :now
-                    WHERE id IN (:uio_a_id, :uio_b_id)
-                      AND organization_id = :org_id
-                    """
-                ),
-                {
-                    "uio_a_id": uio_a_id,
-                    "uio_b_id": uio_b_id,
-                    "org_id": self.organization_id,
-                    "now": now,
-                },
-            )
-
-            for target_id in (uio_a_id, uio_b_id):
+                contradiction_id = str(uuid4())
                 await session.execute(
                     text(
                         """
-                        INSERT INTO unified_object_timeline (
-                            id, unified_object_id,
-                            event_type, event_description,
-                            event_reason,
-                            previous_value, new_value,
-                            source_type, source_id, source_name,
-                            message_id, quoted_text,
-                            triggered_by, confidence, event_at
+                        INSERT INTO uio_contradiction (
+                            id, organization_id, uio_a_id, uio_b_id,
+                            contradiction_type, severity, status,
+                            evidence_quote, evidence_artifact_id,
+                            detected_at, created_at, updated_at
                         ) VALUES (
-                            :id, :unified_object_id,
-                            :event_type, :event_description,
-                            :event_reason,
-                            :previous_value, :new_value,
-                            :source_type, :source_id, :source_name,
-                            :message_id, :quoted_text,
-                            :triggered_by, :confidence, :event_at
+                            :id, :org_id, :uio_a_id, :uio_b_id,
+                            :contradiction_type, :severity, 'open',
+                            :evidence_quote, :evidence_artifact_id,
+                            :detected_at, :created_at, :updated_at
                         )
                         """
                     ),
                     {
-                        "id": str(uuid4()),
-                        "unified_object_id": target_id,
-                        "event_type": "contradiction_detected",
-                        "event_description": f"Contradiction detected with {uio_b_id if target_id == uio_a_id else uio_a_id}",
-                        "event_reason": "contradiction_detected",
-                        "previous_value": None,
-                        "new_value": None,
-                        "source_type": "system",
-                        "source_id": None,
-                        "source_name": None,
-                        "message_id": None,
-                        "quoted_text": evidence_quote,
-                        "triggered_by": detected_by or "system",
-                        "confidence": None,
-                        "event_at": now,
+                        "id": contradiction_id,
+                        "org_id": self.organization_id,
+                        "uio_a_id": uio_a_id,
+                        "uio_b_id": uio_b_id,
+                        "contradiction_type": contradiction_type,
+                        "severity": severity,
+                        "evidence_quote": evidence_quote,
+                        "evidence_artifact_id": evidence_artifact_id,
+                        "detected_at": now,
+                        "created_at": now,
+                        "updated_at": now,
                     },
                 )
+
+                await session.execute(
+                    text(
+                        """
+                        UPDATE unified_intelligence_object
+                        SET contradicts_existing = true,
+                            belief_state = 'contradicted',
+                            last_update_reason = 'contradiction_detected',
+                            updated_at = :now
+                        WHERE id IN (:uio_a_id, :uio_b_id)
+                          AND organization_id = :org_id
+                        """
+                    ),
+                    {
+                        "uio_a_id": uio_a_id,
+                        "uio_b_id": uio_b_id,
+                        "org_id": self.organization_id,
+                        "now": now,
+                    },
+                )
+
+                for target_id in (uio_a_id, uio_b_id):
+                    await session.execute(
+                        text(
+                            """
+                            INSERT INTO unified_object_timeline (
+                                id, unified_object_id,
+                                event_type, event_description,
+                                event_reason,
+                                previous_value, new_value,
+                                source_type, source_id, source_name,
+                                message_id, quoted_text,
+                                triggered_by, confidence, event_at
+                            ) VALUES (
+                                :id, :unified_object_id,
+                                :event_type, :event_description,
+                                :event_reason,
+                                :previous_value, :new_value,
+                                :source_type, :source_id, :source_name,
+                                :message_id, :quoted_text,
+                                :triggered_by, :confidence, :event_at
+                            )
+                            """
+                        ),
+                        {
+                            "id": str(uuid4()),
+                            "unified_object_id": target_id,
+                            "event_type": "contradiction_detected",
+                            "event_description": f"Contradiction detected with {uio_b_id if target_id == uio_a_id else uio_a_id}",
+                            "event_reason": "contradiction_detected",
+                            "previous_value": None,
+                            "new_value": None,
+                            "source_type": "system",
+                            "source_id": None,
+                            "source_name": None,
+                            "message_id": None,
+                            "quoted_text": evidence_quote,
+                            "triggered_by": detected_by or "system",
+                            "confidence": None,
+                            "event_at": now,
+                        },
+                    )
+        finally:
+            set_rls_context(None, is_internal=False)
 
         if sync_graph:
             try:
@@ -2158,58 +2163,62 @@ class UIOManager:
     ) -> bool:
         """Resolve a contradiction and update related UIOs."""
         now = datetime.utcnow()
-        async with get_db_session() as session:
-            result = await session.execute(
-                text(
-                    """
-                    SELECT uio_a_id, uio_b_id FROM uio_contradiction
-                    WHERE id = :id AND organization_id = :org_id
-                    """
-                ),
-                {"id": contradiction_id, "org_id": self.organization_id},
-            )
-            row = result.fetchone()
-            if not row:
-                return False
+        set_rls_context(self.organization_id, is_internal=True)
+        try:
+            async with get_db_session() as session:
+                result = await session.execute(
+                    text(
+                        """
+                        SELECT uio_a_id, uio_b_id FROM uio_contradiction
+                        WHERE id = :id AND organization_id = :org_id
+                        """
+                    ),
+                    {"id": contradiction_id, "org_id": self.organization_id},
+                )
+                row = result.fetchone()
+                if not row:
+                    return False
 
-            await session.execute(
-                text(
-                    """
-                    UPDATE uio_contradiction
-                    SET status = 'resolved',
-                        resolution_reason = :reason,
-                        resolved_at = :now,
-                        resolved_by = :resolved_by,
-                        updated_at = :now
-                    WHERE id = :id
-                    """
-                ),
-                {
-                    "id": contradiction_id,
-                    "reason": resolution_reason,
-                    "resolved_by": resolved_by,
-                    "now": now,
-                },
-            )
+                await session.execute(
+                    text(
+                        """
+                        UPDATE uio_contradiction
+                        SET status = 'resolved',
+                            resolution_reason = :reason,
+                            resolved_at = :now,
+                            resolved_by = :resolved_by,
+                            updated_at = :now
+                        WHERE id = :id
+                        """
+                    ),
+                    {
+                        "id": contradiction_id,
+                        "reason": resolution_reason,
+                        "resolved_by": resolved_by,
+                        "now": now,
+                    },
+                )
 
-            await session.execute(
-                text(
-                    """
-                    UPDATE unified_intelligence_object
-                    SET belief_state = 'resolved',
-                        last_update_reason = 'contradiction_resolved',
-                        updated_at = :now
-                    WHERE id IN (:uio_a_id, :uio_b_id)
-                      AND organization_id = :org_id
-                    """
-                ),
-                {
-                    "uio_a_id": row.uio_a_id,
-                    "uio_b_id": row.uio_b_id,
-                    "org_id": self.organization_id,
-                    "now": now,
-                },
-            )
+                await session.execute(
+                    text(
+                        """
+                        UPDATE unified_intelligence_object
+                        SET belief_state = 'resolved',
+                            last_update_reason = 'contradiction_resolved',
+                            updated_at = :now
+                        WHERE id IN (:uio_a_id, :uio_b_id)
+                          AND organization_id = :org_id
+                        """
+                    ),
+                    {
+                        "uio_a_id": row.uio_a_id,
+                        "uio_b_id": row.uio_b_id,
+                        "org_id": self.organization_id,
+                        "now": now,
+                    },
+                )
+        finally:
+            set_rls_context(None, is_internal=False)
 
         try:
             graph = await self._get_graph()

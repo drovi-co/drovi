@@ -64,17 +64,18 @@ async def test_pipeline_input_failure_tracks_error_metric(monkeypatch: pytest.Mo
         AsyncMock(side_effect=RuntimeError("falkor_unavailable")),
     )
 
-    await worker._handle_pipeline_input(
-        {
-            "payload": {
-                "organization_id": "org_test",
-                "source_type": "email",
-                "content": "hello world",
-                "source_id": "msg_1",
-                "ingest": {"content_hash": "hash_1"},
+    with pytest.raises(RuntimeError, match="falkor_unavailable"):
+        await worker._handle_pipeline_input(
+            {
+                "payload": {
+                    "organization_id": "org_test",
+                    "source_type": "email",
+                    "content": "hello world",
+                    "source_id": "msg_1",
+                    "ingest": {"content_hash": "hash_1"},
+                }
             }
-        }
-    )
+        )
 
     assert metrics.calls
     assert metrics.calls[-1]["status"] == "error"

@@ -13,8 +13,12 @@ resources:
   - temporal.yaml
   - drovi-intelligence-api.yaml
   - drovi-workers.yaml
+  - world-brain.workers.yaml
+  - world-brain.autoscaler.yaml
   - imperium-api-workers.yaml
   - web-admin-imperium-web.yaml
   - poddisruptionbudgets.yaml
   - hpa.yaml
+  - world-brain.hpa.yaml
+  - world-brain.observability.yaml
   - ingress.yaml

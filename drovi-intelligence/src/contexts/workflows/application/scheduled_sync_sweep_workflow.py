@@ -56,6 +56,13 @@ class ScheduledSyncSweepWorkflow:
             organization_id = str(row.get("organization_id") or "")
             connector_type = str(row.get("connector_type") or "")
             interval_minutes_raw = row.get("sync_frequency_minutes")
+            scheduled_interval_raw = row.get("scheduled_interval_minutes")
+            sync_job_type = str(row.get("sync_job_type") or "scheduled")
+            catchup_mode = bool(row.get("catchup_mode") or False)
+            freshness_lag_minutes = row.get("freshness_lag_minutes")
+            quota_headroom_ratio = row.get("quota_headroom_ratio")
+            voi_priority = row.get("voi_priority")
+            cadence_reasons = row.get("cadence_reasons") or []
 
             if not connection_id or not organization_id:
                 skipped += 1
@@ -69,16 +76,29 @@ class ScheduledSyncSweepWorkflow:
             else:
                 interval_minutes = 0
 
-            if interval_minutes <= 0:
+            if scheduled_interval_raw:
+                try:
+                    scheduled_interval_minutes = int(scheduled_interval_raw)
+                except Exception:
+                    scheduled_interval_minutes = 0
+            else:
+                scheduled_interval_minutes = 0
+
+            if scheduled_interval_minutes <= 0 and interval_minutes <= 0:
                 interval_minutes = DEFAULT_SYNC_SCHEDULES.get(connector_type, {}).get(
                     "interval_minutes",
                     default_interval,
                 )
+            elif scheduled_interval_minutes > 0:
+                interval_minutes = scheduled_interval_minutes
 
             interval_minutes = max(1, interval_minutes)
             bucket_size = max(60, interval_minutes * 60)
             bucket = now_ts // bucket_size
-            idempotency_key = f"scheduled_sync:{connection_id}:{bucket}"
+            if sync_job_type == "continuous":
+                idempotency_key = f"continuous_ingest:{connection_id}:{bucket}"
+            else:
+                idempotency_key = f"scheduled_sync:{connection_id}:{bucket}"
 
             await workflow.execute_activity(
                 "jobs.enqueue",
@@ -89,8 +109,20 @@ class ScheduledSyncSweepWorkflow:
                         "connection_id": connection_id,
                         "organization_id": organization_id,
                         "scheduled": True,
+                        "sync_job_type": sync_job_type,
+                        "sync_params": {
+                            "continuous_ingest": sync_job_type == "continuous",
+                            "catchup_mode": catchup_mode,
+                            "scheduled_interval_minutes": interval_minutes,
+                            "cadence_reasons": list(cadence_reasons)
+                            if isinstance(cadence_reasons, list)
+                            else [str(cadence_reasons)],
+                            "freshness_lag_minutes": freshness_lag_minutes,
+                            "quota_headroom_ratio": quota_headroom_ratio,
+                            "voi_priority": voi_priority,
+                        },
                     },
-                    "priority": 0,
+                    "priority": 1 if catchup_mode else 0,
                     "max_attempts": 3,
                     "idempotency_key": idempotency_key,
                     "resource_key": f"connection:{connection_id}",
@@ -100,4 +132,3 @@ class ScheduledSyncSweepWorkflow:
             enqueued += 1
 
         return {"enqueued": enqueued, "skipped": skipped, "scanned": len(rows)}
-

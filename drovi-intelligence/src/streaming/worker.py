@@ -31,6 +31,7 @@ from src.streaming.ingestion_pipeline import (
     enrich_normalized_payload,
     normalize_raw_event_payload,
 )
+from src.streaming.processing_tier import StreamProcessingTier
 from src.monitoring import get_metrics
 from src.db import close_db, close_db_pool, get_db_pool, init_db
 
@@ -67,6 +68,7 @@ class KafkaWorker:
         self._producer = None
         self._running = False
         self._shutdown_event = asyncio.Event()
+        self._processing_tier = StreamProcessingTier()
 
     async def start(self) -> None:
         """Start the Kafka worker."""
@@ -174,6 +176,19 @@ class KafkaWorker:
             normalized_event = normalize_raw_event_payload(payload, kafka_timestamp=str(origin_timestamp) if origin_timestamp else None)
             if not normalized_event:
                 return
+            tier = self._processing_tier.route(
+                topic=self.settings.kafka_topic_raw_events,
+                payload=payload if isinstance(payload, dict) else {},
+            )
+            normalized_event.ingest.setdefault("processing_tier", tier.to_dict())
+            if bool((normalized_event.ingest or {}).get("drop_event")):
+                logger.info(
+                    "Dropping raw event due to surge control",
+                    organization_id=normalized_event.organization_id,
+                    source_type=normalized_event.source_type,
+                    reason_codes=((normalized_event.ingest or {}).get("surge_control") or {}).get("reason_codes"),
+                )
+                return
 
             await self._producer.produce_normalized_record(
                 organization_id=normalized_event.organization_id,
@@ -187,21 +202,83 @@ class KafkaWorker:
                 organization_id=organization_id,
                 error=str(exc),
             )
+            raise
 
     async def _handle_normalized_record(self, message: dict[str, Any]) -> None:
         """Enrich normalized records and enqueue pipeline input."""
+        from src.ingestion.impact_precompute import precompute_impact_features
+        from src.ingestion.observation_store import persist_normalized_observation
+        from src.world_model.twin_service import get_world_twin_service
+
         payload = message.get("payload", {})
         try:
             normalized_event = NormalizedRecordEvent(**payload)
+            persistence = await persist_normalized_observation(
+                organization_id=normalized_event.organization_id,
+                normalized_id=normalized_event.normalized_id,
+                source_type=normalized_event.source_type,
+                source_id=normalized_event.source_id,
+                event_type=normalized_event.event_type,
+                normalized_payload=normalized_event.normalized,
+                ingest=normalized_event.ingest,
+            )
+            impact_hint = await precompute_impact_features(
+                organization_id=normalized_event.organization_id,
+                observation_id=persistence.observation_id,
+                source_type=normalized_event.source_type,
+                normalized_payload=normalized_event.normalized,
+                ingest=normalized_event.ingest,
+            )
             pipeline_event = await enrich_normalized_payload(normalized_event)
+            tier = self._processing_tier.route(
+                topic=self.settings.kafka_topic_normalized_records,
+                payload={
+                    "priority": (pipeline_event.ingest or {}).get("priority"),
+                    "source_type": pipeline_event.source_type,
+                    "connector_type": pipeline_event.connector_type,
+                },
+            )
+            pipeline_event.ingest.setdefault("processing_tier", tier.to_dict())
+            pipeline_event.ingest.setdefault("observation_id", persistence.observation_id)
+            pipeline_event.ingest.setdefault("impact_precompute", impact_hint)
+
+            # Near-real-time twin updater: keeps latest institutional twin fresh per normalized event.
+            try:
+                metadata = dict((normalized_event.normalized or {}).get("metadata") or {})
+                canonical = dict(metadata.get("world_canonical") or {})
+                twin_event = {
+                    "event_id": persistence.observation_id,
+                    "source": normalized_event.source_type,
+                    "source_ref": normalized_event.source_id,
+                    "observed_at": normalized_event.ingest.get("origin_ts"),
+                    "domain": str(canonical.get("family") or normalized_event.source_type or "general").lower(),
+                    "reliability": float(normalized_event.ingest.get("source_reliability") or 0.5),
+                    "entity_refs": list(canonical.get("entities") or []),
+                    "title": (normalized_event.normalized or {}).get("subject"),
+                }
+                twin_service = await get_world_twin_service(normalized_event.organization_id)
+                await twin_service.apply_stream_event(event=twin_event, persist=True)
+            except Exception as twin_exc:
+                logger.warning(
+                    "World twin stream update failed",
+                    organization_id=normalized_event.organization_id,
+                    observation_id=persistence.observation_id,
+                    error=str(twin_exc),
+                )
+
             await self._producer.produce_pipeline_input(
                 organization_id=pipeline_event.organization_id,
                 pipeline_id=pipeline_event.pipeline_id,
                 data=pipeline_event.to_payload(),
                 priority=pipeline_event.ingest.get("priority"),
+                idempotency_key=(
+                    f"pipeline_input:{pipeline_event.organization_id}:"
+                    f"{pipeline_event.ingest.get('observation_id') or pipeline_event.pipeline_id}"
+                ),
             )
         except Exception as exc:
             logger.error("Failed to enrich normalized record", error=str(exc))
+            raise
 
     async def _handle_pipeline_input(self, message: dict[str, Any]) -> None:
         """Run the intelligence extraction pipeline and publish graph changes."""
@@ -305,6 +382,7 @@ class KafkaWorker:
                 organization_id=organization_id,
                 error=str(exc),
             )
+            raise
 
     async def _is_duplicate_event(self, organization_id: str, content_hash: str | None) -> bool:
         if not content_hash:

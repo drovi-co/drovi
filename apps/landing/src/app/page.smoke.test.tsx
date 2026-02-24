@@ -37,6 +37,12 @@ vi.mock("@/components/landing/agents", () => ({ Agents: () => <div>agents</div> 
 vi.mock("@/components/landing/features", () => ({
   Features: () => <div>features</div>,
 }));
+vi.mock("@/components/landing/world-brain-signal", () => ({
+  WorldBrainSignal: () => <div>world-brain-signal</div>,
+}));
+vi.mock("@/components/landing/world-brain-capabilities", () => ({
+  WorldBrainCapabilities: () => <div>world-brain-capabilities</div>,
+}));
 vi.mock("@/components/landing/testimonial", () => ({
   Testimonial: () => <div>testimonial</div>,
 }));

@@ -1,0 +1,51 @@
+# Kafka topology policy (Phase 14 scale hardening)
+
+cluster:
+  partition_strategy: "by_org_and_signal_class"
+  replication_factor: 3
+  min_insync_replicas: 2
+  tiered_storage_enabled: true
+
+retention_classes:
+  hot:
+    retention_hours: 72
+    segment_bytes: 268435456
+  warm:
+    retention_hours: 720
+    segment_bytes: 536870912
+  cold:
+    retention_hours: 4320
+    segment_bytes: 1073741824
+
+topics:
+  raw.connector.events:
+    partitions: 48
+    retention_class: hot
+  normalized.records:
+    partitions: 48
+    retention_class: hot
+  intelligence.pipeline.input:
+    partitions: 64
+    retention_class: warm
+  drovi-intelligence:
+    partitions: 64
+    retention_class: warm
+  graph.changes:
+    partitions: 48
+    retention_class: warm
+  agent.inbox.events:
+    partitions: 32
+    retention_class: warm
+  crawl.frontier.events:
+    partitions: 24
+    retention_class: hot
+  crawl.fetch.events:
+    partitions: 48
+    retention_class: hot
+  crawl.parse.events:
+    partitions: 48
+    retention_class: warm
+  crawl.diff.events:
+    partitions: 32
+    retention_class: warm
+

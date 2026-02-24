@@ -226,6 +226,12 @@ variable "evidence_bucket_name" {
   default     = ""
 }
 
+variable "lakehouse_bucket_name" {
+  description = "Optional override for lakehouse S3 bucket name."
+  type        = string
+  default     = ""
+}
+
 variable "s3_object_lock_enabled" {
   description = "Enable S3 object lock for evidence bucket immutability."
   type        = bool
@@ -236,6 +242,56 @@ variable "evidence_default_retention_days" {
   description = "Default governance retention for evidence bucket objects."
   type        = number
   default     = 365
+}
+
+variable "lakehouse_hot_retention_days" {
+  description = "Lakehouse hot tier retention in days before warm transition."
+  type        = number
+  default     = 7
+}
+
+variable "lakehouse_warm_retention_days" {
+  description = "Lakehouse warm tier retention in days before cold transition."
+  type        = number
+  default     = 30
+}
+
+variable "lakehouse_cold_retention_days" {
+  description = "Lakehouse cold tier retention in days before archival expiration."
+  type        = number
+  default     = 365
+}
+
+variable "enable_glue_schema_registry" {
+  description = "Create AWS Glue Schema Registry for Kafka/world-brain contracts."
+  type        = bool
+  default     = true
+}
+
+variable "glue_schema_registry_name" {
+  description = "Optional override for AWS Glue Schema Registry name."
+  type        = string
+  default     = ""
+}
+
+variable "trusted_data_plane_security_group_ids" {
+  description = "Additional security groups explicitly allowed to access data plane services."
+  type        = list(string)
+  default     = []
+}
+
+variable "enable_world_brain_managed_secrets" {
+  description = "Create AWS Secrets Manager placeholders for world-brain provider credentials."
+  type        = bool
+  default     = false
+}
+
+variable "world_brain_managed_secret_names" {
+  description = "Secret names (suffixes) to provision in Secrets Manager for world-brain providers."
+  type        = list(string)
+  default = [
+    "worldnewsapi_api_key",
+  ]
 }
 
 variable "web_cors_origins" {

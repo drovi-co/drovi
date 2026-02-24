@@ -127,6 +127,12 @@ function getBreadcrumbs(
     return breadcrumbs;
   }
 
+  // World Brain
+  if (pathname === "/dashboard/world-brain") {
+    breadcrumbs.push({ label: "World Brain" });
+    return breadcrumbs;
+  }
+
   // Calendar section
   if (pathname === "/dashboard/schedule") {
     breadcrumbs.push({ label: t("nav.items.schedule") });

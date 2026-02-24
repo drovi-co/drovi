@@ -58,6 +58,10 @@ async def test_run_connectors_health_monitor_enqueues_auto_recovery() -> None:
         patch("src.connectors.health_monitor.get_db_session", fake_session),
         patch("src.connectors.health_monitor.get_settings", _settings_stub),
         patch(
+            "src.connectors.health_monitor.get_connector_circuit_breaker_snapshot",
+            return_value={},
+        ),
+        patch(
             "src.connectors.health_monitor.enqueue_job",
             AsyncMock(return_value="job_auto_recover_1"),
         ) as mock_enqueue,
@@ -90,9 +94,59 @@ async def test_run_connectors_health_monitor_empty_scope() -> None:
     with (
         patch("src.connectors.health_monitor.get_db_session", fake_session),
         patch("src.connectors.health_monitor.get_settings", _settings_stub),
+        patch(
+            "src.connectors.health_monitor.get_connector_circuit_breaker_snapshot",
+            return_value={},
+        ),
     ):
         result = await run_connectors_health_monitor({"organization_id": "internal"})
 
     assert result["checked_connections"] == 0
     assert result["alerts"] == 0
     assert result["auto_recovery_enqueued"] == 0
+
+
+@pytest.mark.asyncio
+async def test_run_connectors_health_monitor_reports_open_provider_circuits() -> None:
+    connection_id = uuid4()
+    healthy_connection = SimpleNamespace(
+        id=connection_id,
+        organization_id="org_test",
+        connector_type="gmail",
+        status="connected",
+        sync_enabled=True,
+        sync_frequency_minutes=5,
+        last_sync_at=datetime.now(timezone.utc) - timedelta(minutes=2),
+        last_sync_status="success",
+        last_sync_error=None,
+    )
+
+    connections_result = MagicMock()
+    connections_result.scalars.return_value.all.return_value = [healthy_connection]
+    failures_result = [SimpleNamespace(connection_id=connection_id, failed_count=0)]
+    recovering_result: list[SimpleNamespace] = []
+
+    session = AsyncMock()
+    session.execute = AsyncMock(
+        side_effect=[connections_result, failures_result, recovering_result]
+    )
+
+    @asynccontextmanager
+    async def fake_session():
+        yield session
+
+    with (
+        patch("src.connectors.health_monitor.get_db_session", fake_session),
+        patch("src.connectors.health_monitor.get_settings", _settings_stub),
+        patch(
+            "src.connectors.health_monitor.get_connector_circuit_breaker_snapshot",
+            return_value={"provider:gmail": {"is_open": True}},
+        ),
+        patch("src.connectors.health_monitor.enqueue_job", AsyncMock(return_value="job_x")),
+    ):
+        result = await run_connectors_health_monitor({"organization_id": "internal"})
+
+    assert result["checked_connections"] == 1
+    assert result["provider_circuit_open_count"] == 1
+    assert result["provider_circuit_open_types"] == ["gmail"]
+    assert result["alerts"] == 1

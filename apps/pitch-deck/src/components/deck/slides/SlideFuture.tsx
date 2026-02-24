@@ -62,7 +62,7 @@ const SlideFuture = () => (
         transition={{ duration: 0.8, delay: 2.8 }}
         className="text-base sm:text-lg font-serif text-muted-foreground"
       >
-        The institutional ledger beneath <span className="text-gold">autonomous capital</span>.
+        The institutional ledger and world brain beneath <span className="text-gold">autonomous capital</span>.
       </motion.p>
     </div>
   </SlideLayout>

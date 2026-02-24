@@ -88,7 +88,12 @@ class ClaimedJob:
     payload: dict[str, Any]
 
 
-async def claim_next_job(*, worker_id: str, lease_seconds: int) -> ClaimedJob | None:
+async def claim_next_job(
+    *,
+    worker_id: str,
+    lease_seconds: int,
+    allowed_job_types: list[str] | None = None,
+) -> ClaimedJob | None:
     """
     Claim the next runnable job using a lease (FOR UPDATE SKIP LOCKED).
 
@@ -117,6 +122,7 @@ async def claim_next_job(*, worker_id: str, lease_seconds: int) -> ClaimedJob | 
                     WHERE bj.status = 'queued'
                       AND bj.run_at <= $3
                       AND (bj.lease_until IS NULL OR bj.lease_until < $3)
+                      AND ($4::text[] IS NULL OR bj.job_type = ANY($4::text[]))
                       AND (
                         bj.resource_key IS NULL
                         OR NOT EXISTS (
@@ -146,6 +152,7 @@ async def claim_next_job(*, worker_id: str, lease_seconds: int) -> ClaimedJob | 
                 worker_id,
                 lease_until,
                 now,
+                allowed_job_types,
             )
 
     if not row:

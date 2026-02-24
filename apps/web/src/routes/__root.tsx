@@ -14,6 +14,7 @@ import { IntentBar } from "@/components/intent-bar/intent-bar";
 import { SupportModal } from "@/components/support/support-modal";
 import { initializeAuth } from "@/lib/auth";
 import { useRoutePerformanceInstrumentation } from "@/lib/route-performance";
+import { useWebVitalsMonitoring } from "@/lib/web-vitals-monitor";
 import { WebRuntimeProvider } from "@/modules/runtime-provider";
 
 import "../index.css";
@@ -52,6 +53,7 @@ function RootComponent() {
     initializeAuth().catch(() => undefined);
   }, []);
   useRoutePerformanceInstrumentation();
+  useWebVitalsMonitoring();
 
   return (
     <>

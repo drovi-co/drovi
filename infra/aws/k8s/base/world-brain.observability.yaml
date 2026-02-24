@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: world-brain-grafana-dashboards
+  namespace: drovi
+  labels:
+    app.kubernetes.io/name: world-brain
+    grafana_dashboard: "1"
+data:
+  world-brain-ingestion-freshness.json: |
+    {
+      "title": "World Brain / Ingestion Freshness",
+      "schemaVersion": 39,
+      "version": 1,
+      "timezone": "utc",
+      "refresh": "30s",
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "P95 Freshness Lag (minutes)",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le, connector_type) (rate(drovi_source_freshness_lag_minutes_bucket[5m])))"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Freshness SLO Breaches",
+          "targets": [
+            {
+              "expr": "sum by (connector_type) (increase(drovi_source_freshness_slo_breach_total[5m]))"
+            }
+          ]
+        }
+      ]
+    }
+  world-brain-throughput-and-queue.json: |
+    {
+      "title": "World Brain / Throughput and Queue Backlog",
+      "schemaVersion": 39,
+      "version": 1,
+      "timezone": "utc",
+      "refresh": "30s",
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "Pipeline Throughput (events/sec)",
+          "targets": [
+            {
+              "expr": "sum by (topic) (rate(drovi_kafka_events_consumed_total[5m]))"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Queue Backlog by Job Type",
+          "targets": [
+            {
+              "expr": "sum by (job_type) (drovi_background_job_queued)"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Failed Jobs by Class",
+          "targets": [
+            {
+              "expr": "sum by (job_type) (increase(drovi_background_job_failed_total[15m]))"
+            }
+          ]
+        }
+      ]
+    }

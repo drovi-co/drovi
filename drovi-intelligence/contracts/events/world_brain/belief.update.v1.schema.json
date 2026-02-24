@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "BeliefUpdatePayload": {
+      "properties": {
+        "belief_id": {
+          "title": "Belief Id",
+          "type": "string"
+        },
+        "next_state": {
+          "title": "Next State",
+          "type": "string"
+        },
+        "probability": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Probability",
+          "type": "number"
+        },
+        "proposition": {
+          "title": "Proposition",
+          "type": "string"
+        },
+        "revised_at": {
+          "format": "date-time",
+          "title": "Revised At",
+          "type": "string"
+        },
+        "supporting_observation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Observation Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "belief_id",
+        "proposition",
+        "next_state",
+        "probability",
+        "revised_at"
+      ],
+      "title": "BeliefUpdatePayload",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "const": "belief.update.v1",
+      "default": "belief.update.v1",
+      "title": "Event Type",
+      "type": "string"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "organization_id": {
+      "title": "Organization Id",
+      "type": "string"
+    },
+    "payload": {
+      "$ref": "#/$defs/BeliefUpdatePayload"
+    },
+    "producer": {
+      "default": "drovi-intelligence",
+      "title": "Producer",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "organization_id",
+    "event_id",
+    "occurred_at",
+    "payload"
+  ],
+  "title": "BeliefUpdateEvent",
+  "type": "object"
+}

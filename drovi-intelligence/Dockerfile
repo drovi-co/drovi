@@ -47,6 +47,7 @@ COPY --from=builder /app/.venv /app/.venv
 COPY src/ ./src/
 COPY alembic.ini ./alembic.ini
 COPY alembic/ ./alembic/
+COPY scripts/ ./scripts/
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app/.venv/lib/python3.12/site-packages:/app" \

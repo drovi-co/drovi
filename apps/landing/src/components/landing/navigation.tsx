@@ -8,6 +8,7 @@ import { useSession } from "@/lib/auth-client";
 import { cn, getAppUrl } from "@/lib/utils";
 
 const navLinks = [
+  { label: "World Brain", href: "/world-brain" },
   { label: "How it works", href: "#how-it-works" },
   { label: "Features", href: "#features" },
   { label: "Pricing", href: "#pricing" },

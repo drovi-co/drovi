@@ -1,0 +1,100 @@
+{
+  "$defs": {
+    "ImpactEdgeComputedPayload": {
+      "properties": {
+        "computed_at": {
+          "format": "date-time",
+          "title": "Computed At",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence_link_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Link Ids",
+          "type": "array"
+        },
+        "external_object_ref": {
+          "title": "External Object Ref",
+          "type": "string"
+        },
+        "impact_edge_id": {
+          "title": "Impact Edge Id",
+          "type": "string"
+        },
+        "impact_type": {
+          "title": "Impact Type",
+          "type": "string"
+        },
+        "internal_object_ref": {
+          "title": "Internal Object Ref",
+          "type": "string"
+        },
+        "severity": {
+          "title": "Severity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "impact_edge_id",
+        "external_object_ref",
+        "internal_object_ref",
+        "impact_type",
+        "severity",
+        "confidence",
+        "computed_at"
+      ],
+      "title": "ImpactEdgeComputedPayload",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "const": "impact.edge.computed.v1",
+      "default": "impact.edge.computed.v1",
+      "title": "Event Type",
+      "type": "string"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "organization_id": {
+      "title": "Organization Id",
+      "type": "string"
+    },
+    "payload": {
+      "$ref": "#/$defs/ImpactEdgeComputedPayload"
+    },
+    "producer": {
+      "default": "drovi-intelligence",
+      "title": "Producer",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "organization_id",
+    "event_id",
+    "occurred_at",
+    "payload"
+  ],
+  "title": "ImpactEdgeComputedEvent",
+  "type": "object"
+}

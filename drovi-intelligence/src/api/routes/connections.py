@@ -159,6 +159,23 @@ class BackfillRequest(BaseModel):
     )
 
 
+class ReplayRequest(BaseModel):
+    """Request to replay sync from an explicit checkpoint."""
+
+    checkpoint_cursor: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional cursor checkpoint override applied before replay sync.",
+    )
+    streams: list[str] | None = Field(
+        default=None,
+        description="Optional stream subset to replay. If omitted, all enabled streams are replayed.",
+    )
+    full_refresh: bool = Field(
+        default=False,
+        description="Force replay as full refresh after checkpoint override.",
+    )
+
+
 class SyncStatusResponse(BaseModel):
     """Sync status response."""
 
@@ -818,6 +835,202 @@ async def trigger_backfill(
         "backfill_jobs": [job_id],
         "status": "queued",
     }
+
+
+@router.post("/{connection_id}/ingest/pause")
+async def pause_ingest(
+    connection_id: str,
+    reason: str | None = Query(default=None, description="Optional operator reason"),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE_CONNECTIONS)),
+):
+    """Pause continuous ingest for a source connection."""
+    from sqlalchemy import select
+
+    from src.db.client import get_db_session
+    from src.db.models.connections import Connection
+
+    async with get_db_session() as session:
+        connection = (
+            await session.execute(select(Connection).where(Connection.id == connection_id))
+        ).scalar_one_or_none()
+        if not connection:
+            raise HTTPException(status_code=404, detail="Connection not found")
+        organization_id = str(connection.organization_id)
+        _validate_org_id(ctx, organization_id)
+        organization_id = str(connection.organization_id)
+
+        config_payload = connection.config if isinstance(connection.config, dict) else {}
+        ingest_control = config_payload.get("ingest_control")
+        ingest_control = ingest_control if isinstance(ingest_control, dict) else {}
+        config_payload["ingest_control"] = {
+            **ingest_control,
+            "manual_pause": True,
+            "manual_pause_reason": reason or "Operator pause",
+            "manual_pause_at": datetime.now(timezone.utc).isoformat(),
+        }
+        connection.config = config_payload
+        connection.sync_enabled = False
+        connection.status = "paused"
+        connection.updated_at = datetime.utcnow()
+        await session.commit()
+
+    return {"connection_id": connection_id, "status": "paused"}
+
+
+@router.post("/{connection_id}/ingest/resume")
+async def resume_ingest(
+    connection_id: str,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE_CONNECTIONS)),
+):
+    """Resume continuous ingest for a source connection."""
+    from sqlalchemy import select
+
+    from src.db.client import get_db_session
+    from src.db.models.connections import Connection
+
+    async with get_db_session() as session:
+        connection = (
+            await session.execute(select(Connection).where(Connection.id == connection_id))
+        ).scalar_one_or_none()
+        if not connection:
+            raise HTTPException(status_code=404, detail="Connection not found")
+        organization_id = str(connection.organization_id)
+        _validate_org_id(ctx, organization_id)
+
+        config_payload = connection.config if isinstance(connection.config, dict) else {}
+        ingest_control = config_payload.get("ingest_control")
+        ingest_control = ingest_control if isinstance(ingest_control, dict) else {}
+        config_payload["ingest_control"] = {
+            **ingest_control,
+            "manual_pause": False,
+            "manual_pause_reason": None,
+            "quarantined_until": None,
+            "failure_count": 0,
+            "resumed_at": datetime.now(timezone.utc).isoformat(),
+        }
+        connection.config = config_payload
+        connection.sync_enabled = True
+        if connection.status == "paused":
+            connection.status = "active"
+        connection.updated_at = datetime.utcnow()
+        await session.commit()
+
+    return {"connection_id": connection_id, "status": "active"}
+
+
+@router.post("/{connection_id}/ingest/replay")
+async def replay_ingest(
+    connection_id: str,
+    request: ReplayRequest,
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.WRITE_CONNECTIONS)),
+):
+    """
+    Replay source ingest from checkpoint.
+
+    If `checkpoint_cursor` is supplied, it is persisted before enqueueing the replay sync.
+    """
+    from sqlalchemy import select
+
+    from src.connectors.scheduling.checkpoints import apply_checkpoint_contract
+    from src.db.client import get_db_session
+    from src.db.models.connections import Connection, SyncState
+    from src.jobs.queue import EnqueueJobRequest, enqueue_job
+
+    async with get_db_session() as session:
+        connection = (
+            await session.execute(select(Connection).where(Connection.id == connection_id))
+        ).scalar_one_or_none()
+        if not connection:
+            raise HTTPException(status_code=404, detail="Connection not found")
+        organization_id = str(connection.organization_id)
+        _validate_org_id(ctx, organization_id)
+
+        if request.checkpoint_cursor is not None:
+            target_streams = list(request.streams or connection.streams_config or [])
+            if not target_streams:
+                target_streams = ["events"]
+
+            for stream_name in target_streams:
+                checkpoint_cursor = apply_checkpoint_contract(
+                    cursor_state=request.checkpoint_cursor,
+                    run_id=f"operator-replay:{connection_id}",
+                    run_kind="replay",
+                    watermark=datetime.now(timezone.utc),
+                    stream_name=str(stream_name),
+                )
+                sync_state = (
+                    await session.execute(
+                        select(SyncState).where(
+                            SyncState.connection_id == connection.id,
+                            SyncState.stream_name == str(stream_name),
+                        )
+                    )
+                ).scalar_one_or_none()
+                if sync_state:
+                    sync_state.cursor_state = checkpoint_cursor
+                    sync_state.status = "idle"
+                    sync_state.error_message = None
+                    sync_state.updated_at = datetime.utcnow()
+                else:
+                    session.add(
+                        SyncState(
+                            connection_id=connection.id,
+                            stream_name=str(stream_name),
+                            cursor_state=checkpoint_cursor,
+                            status="idle",
+                        )
+                    )
+
+        await session.commit()
+
+    job_id = await enqueue_job(
+        EnqueueJobRequest(
+            organization_id=organization_id,
+            job_type="connector.sync",
+            payload={
+                "connection_id": connection_id,
+                "organization_id": organization_id,
+                "streams": request.streams,
+                "full_refresh": bool(request.full_refresh),
+                "scheduled": False,
+                "sync_job_type": "replay",
+                "sync_params": {
+                    "operator_replay": True,
+                    "checkpoint_override": request.checkpoint_cursor is not None,
+                },
+            },
+            priority=2,
+            max_attempts=3,
+            resource_key=f"connection:{connection_id}",
+        )
+    )
+
+    return {"connection_id": connection_id, "replay_job_id": job_id, "status": "queued"}
+
+
+@router.get("/{connection_id}/ingest/runs")
+async def list_ingest_runs(
+    connection_id: str,
+    limit: int = Query(50, ge=1, le=500),
+    ctx: APIKeyContext = Depends(require_scope_with_rate_limit(Scope.READ)),
+):
+    """List source ingest run ledger entries for a connection."""
+    from sqlalchemy import select
+
+    from src.connectors.scheduling.run_ledger import list_source_sync_runs
+    from src.db.client import get_db_session
+    from src.db.models.connections import Connection
+
+    async with get_db_session() as session:
+        connection = (
+            await session.execute(select(Connection).where(Connection.id == connection_id))
+        ).scalar_one_or_none()
+        if not connection:
+            raise HTTPException(status_code=404, detail="Connection not found")
+        _validate_org_id(ctx, str(connection.organization_id))
+
+    runs = await list_source_sync_runs(connection_id=connection_id, limit=limit)
+    return {"connection_id": connection_id, "runs": runs}
 
 
 @router.get("/{connection_id}/sync/status", response_model=SyncStatusResponse)

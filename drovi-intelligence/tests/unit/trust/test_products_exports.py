@@ -273,3 +273,59 @@ async def test_export_evidence_bundle_includes_artifacts_and_quotes() -> None:
     assert len(result["bundle"]["quoted_evidence"]) == 1
     assert result["bundle"]["artifacts"][0]["presigned_url"] == "https://signed"
     assert result["bundle"]["custody_anchor"]["merkle_root"] == "root_hash"
+
+
+@pytest.mark.asyncio
+async def test_export_governance_bundle_aggregates_integrity_and_controls() -> None:
+    with (
+        patch(
+            "src.trust.products.compute_continuity_score",
+            AsyncMock(return_value={"score": 91.2, "score_normalized": 0.912}),
+        ),
+        patch(
+            "src.trust.products.get_retention_profile",
+            AsyncMock(
+                return_value={
+                    "organization_id": "org_test",
+                    "data_retention_days": 365,
+                    "evidence_retention_days": 3650,
+                }
+            ),
+        ),
+        patch(
+            "src.trust.products.get_org_security_policy",
+            AsyncMock(
+                return_value=SimpleNamespace(
+                    to_dict=lambda: {
+                        "organization_id": "org_test",
+                        "evidence_masking_enabled": True,
+                    }
+                )
+            ),
+        ),
+        patch(
+            "src.trust.products._audit_integrity_summary",
+            AsyncMock(return_value={"valid": True, "total_entries": 12, "invalid_entries": []}),
+        ),
+        patch(
+            "src.trust.products._latest_custody_anchor",
+            AsyncMock(return_value={"root_date": "2026-02-23", "merkle_root": "root_hash"}),
+        ),
+        patch(
+            "src.trust.products.export_evidence_bundle",
+            AsyncMock(return_value={"bundle_id": "bundle_demo"}),
+        ),
+    ):
+        result = await products.export_governance_bundle(
+            organization_id="org_test",
+            include_evidence_bundle=True,
+            uio_ids=["uio_1"],
+        )
+
+    assert result["bundle_id"].startswith("governance_")
+    assert result["bundle"]["controls"]["org_security_policy"]["organization_id"] == "org_test"
+    assert result["bundle"]["integrity"]["audit_ledger"]["valid"] is True
+    assert result["bundle"]["integrity"]["custody_anchor"]["merkle_root"] == "root_hash"
+    assert result["bundle"]["evidence_bundle"]["bundle_id"] == "bundle_demo"
+    assert len(result["payload_hash"]) == 64
+    assert len(result["signature"]) == 64

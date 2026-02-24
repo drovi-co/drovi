@@ -16,6 +16,7 @@ from src.db.client import get_db_session
 from src.db.rls import set_rls_context
 from src.evidence.audit import record_evidence_audit
 from src.evidence.storage import get_evidence_storage
+from src.security.org_policy import get_org_security_policy
 
 
 def _row_to_dict(row: Any) -> dict[str, Any]:
@@ -839,6 +840,192 @@ async def export_evidence_bundle(
         "signature_key_id": signature_key_id,
         "bundle": bundle_payload,
         "export_json": json.dumps(bundle_payload, sort_keys=True),
+    }
+
+
+async def _audit_integrity_summary(*, organization_id: str) -> dict[str, Any]:
+    set_rls_context(organization_id, is_internal=True)
+    try:
+        async with get_db_session() as session:
+            rows = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT
+                            sequence, prev_hash, entry_hash, action, actor_type, actor_id,
+                            resource_type, resource_id, metadata, created_at
+                        FROM audit_log
+                        WHERE organization_id = :org_id
+                        ORDER BY sequence ASC NULLS LAST, created_at ASC
+                        """
+                    ),
+                    {"org_id": organization_id},
+                )
+            ).fetchall()
+            head = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT last_sequence, last_hash
+                        FROM audit_ledger_head
+                        WHERE organization_id = :org_id
+                        """
+                    ),
+                    {"org_id": organization_id},
+                )
+            ).fetchone()
+    finally:
+        set_rls_context(None, is_internal=False)
+
+    invalid_entries: list[dict[str, Any]] = []
+    legacy_entries = 0
+    previous_hash: str | None = None
+    for row in rows:
+        sequence = getattr(row, "sequence", None)
+        entry_hash = getattr(row, "entry_hash", None)
+        if sequence is None or entry_hash is None:
+            legacy_entries += 1
+            continue
+
+        if getattr(row, "prev_hash", None) != previous_hash:
+            invalid_entries.append({"sequence": int(sequence), "reason": "prev_hash_mismatch"})
+            previous_hash = entry_hash
+            continue
+
+        payload = {
+            "organization_id": organization_id,
+            "sequence": int(sequence),
+            "action": row.action,
+            "actor_type": row.actor_type,
+            "actor_id": row.actor_id,
+            "resource_type": row.resource_type,
+            "resource_id": row.resource_id,
+            "metadata": row.metadata if isinstance(row.metadata, dict) else {},
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "prev_hash": row.prev_hash,
+        }
+        serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        expected = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+        if expected != entry_hash:
+            invalid_entries.append({"sequence": int(sequence), "reason": "hash_mismatch"})
+        previous_hash = entry_hash
+
+    head_ok = True
+    if head and rows:
+        last_sequence = int(getattr(rows[-1], "sequence", 0) or 0)
+        head_ok = int(getattr(head, "last_sequence", 0) or 0) == last_sequence and getattr(head, "last_hash", None) == previous_hash
+
+    return {
+        "valid": (len(invalid_entries) == 0) and head_ok,
+        "head_ok": head_ok,
+        "total_entries": len(rows),
+        "legacy_entries": legacy_entries,
+        "invalid_entries": invalid_entries[:50],
+    }
+
+
+async def _latest_custody_anchor(*, organization_id: str) -> dict[str, Any] | None:
+    set_rls_context(organization_id, is_internal=True)
+    try:
+        async with get_db_session() as session:
+            row = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT
+                            root_date, artifact_count, event_count, leaf_count,
+                            merkle_root, signed_root, signature_alg, signature_key_id,
+                            metadata, created_at
+                        FROM custody_daily_root
+                        WHERE organization_id = :org_id
+                        ORDER BY root_date DESC
+                        LIMIT 1
+                        """
+                    ),
+                    {"org_id": organization_id},
+                )
+            ).fetchone()
+    finally:
+        set_rls_context(None, is_internal=False)
+    if not row:
+        return None
+    return {
+        "root_date": row.root_date.isoformat() if row.root_date else None,
+        "artifact_count": int(row.artifact_count or 0),
+        "event_count": int(row.event_count or 0),
+        "leaf_count": int(row.leaf_count or 0),
+        "merkle_root": row.merkle_root,
+        "signed_root": row.signed_root,
+        "signature_alg": row.signature_alg,
+        "signature_key_id": row.signature_key_id,
+        "metadata": row.metadata if isinstance(row.metadata, dict) else {},
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+async def export_governance_bundle(
+    *,
+    organization_id: str,
+    include_evidence_bundle: bool = False,
+    uio_ids: list[str] | None = None,
+    evidence_ids: list[str] | None = None,
+    include_presigned_urls: bool = False,
+) -> dict[str, Any]:
+    """Export enterprise governance posture bundle with signed integrity metadata."""
+    generated_at = _utc_now()
+    normalized_uio_ids = list(dict.fromkeys(uio_ids or []))
+    normalized_evidence_ids = list(dict.fromkeys(evidence_ids or []))
+
+    continuity = await compute_continuity_score(
+        organization_id=organization_id,
+        lookback_days=30,
+        as_of=generated_at,
+    )
+    retention = await get_retention_profile(organization_id=organization_id)
+    org_policy = await get_org_security_policy(organization_id)
+    audit_integrity = await _audit_integrity_summary(organization_id=organization_id)
+    custody_anchor = await _latest_custody_anchor(organization_id=organization_id)
+
+    evidence_bundle: dict[str, Any] | None = None
+    if include_evidence_bundle and (normalized_uio_ids or normalized_evidence_ids):
+        evidence_bundle = await export_evidence_bundle(
+            organization_id=organization_id,
+            uio_ids=normalized_uio_ids,
+            evidence_ids=normalized_evidence_ids,
+            include_presigned_urls=include_presigned_urls,
+        )
+
+    governance_payload = {
+        "organization_id": organization_id,
+        "generated_at": generated_at.isoformat(),
+        "controls": {
+            "org_security_policy": org_policy.to_dict(),
+            "retention_profile": retention,
+        },
+        "integrity": {
+            "audit_ledger": audit_integrity,
+            "custody_anchor": custody_anchor,
+            "continuity_score": continuity,
+        },
+        "evidence_bundle": evidence_bundle,
+    }
+    payload_hash, signature, signature_alg, signature_key_id = _sign_export(
+        export_type="governance_bundle",
+        organization_id=organization_id,
+        generated_at=generated_at,
+        payload=governance_payload,
+    )
+    bundle_id = f"governance_{payload_hash[:24]}"
+    return {
+        "bundle_id": bundle_id,
+        "organization_id": organization_id,
+        "generated_at": generated_at.isoformat(),
+        "payload_hash": payload_hash,
+        "signature": signature,
+        "signature_alg": signature_alg,
+        "signature_key_id": signature_key_id,
+        "bundle": governance_payload,
+        "export_json": json.dumps(governance_payload, sort_keys=True),
     }
 
 

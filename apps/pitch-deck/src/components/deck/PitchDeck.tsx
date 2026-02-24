@@ -5,6 +5,9 @@ import SlideProblem from "./slides/SlideProblem";
 import SlideWhatBreaks from "./slides/SlideWhatBreaks";
 import SlideWhatIsLedger from "./slides/SlideWhatIsLedger";
 import SlideDroviLedger from "./slides/SlideDroviLedger";
+import SlideWorldBrain from "./slides/SlideWorldBrain";
+import SlideWorldTwin from "./slides/SlideWorldTwin";
+import SlideWorldSurfaces from "./slides/SlideWorldSurfaces";
 import SlideTechArch from "./slides/SlideTechArch";
 import SlideAICore from "./slides/SlideAICore";
 import SlideAgents from "./slides/SlideAgents";
@@ -22,6 +25,9 @@ const slides = [
   SlideWhatBreaks,
   SlideWhatIsLedger,
   SlideDroviLedger,
+  SlideWorldBrain,
+  SlideWorldTwin,
+  SlideWorldSurfaces,
   SlideTechArch,
   SlideAICore,
   SlideAgents,

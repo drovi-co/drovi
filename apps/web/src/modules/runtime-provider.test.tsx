@@ -5,6 +5,12 @@ import { useWebRuntime, WebRuntimeProvider } from "./runtime-provider";
 
 function RuntimeProbe() {
   const runtime = useWebRuntime();
+  const hasWorldBrainRoute = runtime.modules.some((module) =>
+    module.routes.some((route) => route.id === "core.world_brain")
+  );
+  const hasWorldBrainNavItem = runtime.modules.some((module) =>
+    module.navItems.some((item) => item.id === "core.world_brain")
+  );
   return (
     <div>
       <div data-testid="modules">{runtime.modules.map((m) => m.id).join(",")}</div>
@@ -17,6 +23,8 @@ function RuntimeProbe() {
         {runtime.navLabels["core.commitments"] ?? ""}
       </div>
       <div data-testid="hidden-nav">{runtime.hiddenNavItemIds.join(",")}</div>
+      <div data-testid="world-brain-route">{String(hasWorldBrainRoute)}</div>
+      <div data-testid="world-brain-nav">{String(hasWorldBrainNavItem)}</div>
     </div>
   );
 }
@@ -50,6 +58,8 @@ describe("WebRuntimeProvider", () => {
       expect(screen.getByTestId("modules").textContent).toContain("mod-drive");
     });
     expect(screen.getByTestId("theme").textContent).toBe("institutional");
+    expect(screen.getByTestId("world-brain-route").textContent).toBe("false");
+    expect(screen.getByTestId("world-brain-nav").textContent).toBe("false");
   });
 
   it("applies manifest-driven module gates, navigation and vocabulary", async () => {
@@ -87,6 +97,11 @@ describe("WebRuntimeProvider", () => {
             "core.commitments": "Mandate Register",
           },
           hidden_nav_items: ["agent.catalog"],
+        },
+        world_brain: {
+          enabled: true,
+          allowed_org_ids: ["org_legal"],
+          allowed_roles: ["pilot_owner"],
         },
         vocabulary: {
           project: "Matter",
@@ -133,5 +148,67 @@ describe("WebRuntimeProvider", () => {
     expect(screen.getByTestId("hidden-nav").textContent).toContain(
       "agent.catalog"
     );
+    expect(screen.getByTestId("world-brain-route").textContent).toBe("true");
+    expect(screen.getByTestId("world-brain-nav").textContent).toBe("true");
+  });
+
+  it("gates world brain route and nav by role rollout policy", async () => {
+    useAuthStore.setState({
+      user: {
+        user_id: "usr_2",
+        org_id: "org_legal",
+        org_name: "Drovi Legal",
+        role: "analyst",
+        email: "analyst@drovi.co",
+        exp: new Date(Date.now() + 86_400_000).toISOString(),
+      } as any,
+      isAuthenticated: true,
+      isLoading: false,
+      error: null,
+    });
+
+    const manifest = {
+      plugins: ["core", "legal"],
+      uio_types: [],
+      extension_types: [],
+      capabilities: {
+        "console.read": true,
+      },
+      ui_hints: {
+        world_brain: {
+          enabled: true,
+          allowed_org_ids: ["org_legal"],
+          allowed_roles: ["pilot_owner"],
+        },
+      },
+      storage_rules: {
+        canonical_spine_table: "unified_intelligence_object",
+        extension_payload_table: "uio_extension_payload",
+        typed_tables: {},
+      },
+    };
+
+    global.fetch = vi.fn(async () => {
+      return new Response(JSON.stringify(manifest), {
+        status: 200,
+        headers: {
+          ETag: "manifest-etag-2",
+          "Content-Type": "application/json",
+        },
+      });
+    }) as typeof global.fetch;
+
+    render(
+      <WebRuntimeProvider>
+        <RuntimeProbe />
+      </WebRuntimeProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("theme").textContent).toBe("institutional");
+    });
+
+    expect(screen.getByTestId("world-brain-route").textContent).toBe("false");
+    expect(screen.getByTestId("world-brain-nav").textContent).toBe("false");
   });
 });

@@ -66,4 +66,30 @@ describe("web module runtime resolution", () => {
       "/onboarding/connect-sources"
     );
   });
+
+  it("keeps world brain route in the shell and gates nav by capability", () => {
+    const enabled = resolveWebModules({
+      enabledCapabilities: {
+        "world.brain.read": true,
+      },
+    });
+    const disabled = resolveWebModules({
+      enabledCapabilities: {
+        "world.brain.read": false,
+      },
+    });
+
+    const enabledCore = enabled.find((module) => module.id === "mod-core-shell");
+    const disabledCore = disabled.find((module) => module.id === "mod-core-shell");
+
+    expect(
+      enabledCore?.routes.find((route) => route.id === "core.world_brain")
+    ).toBeDefined();
+    expect(
+      enabledCore?.navItems.find((item) => item.id === "core.world_brain")
+    ).toBeDefined();
+    expect(
+      disabledCore?.navItems.find((item) => item.id === "core.world_brain")
+    ).toBeUndefined();
+  });
 });

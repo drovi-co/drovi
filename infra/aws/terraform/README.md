@@ -14,6 +14,9 @@ This Terraform stack creates the AWS foundation required to run the full `drovi-
   - ElastiCache Redis
   - Amazon MSK (SCRAM)
   - S3 + KMS for evidence/documents
+  - S3 lakehouse bucket with lifecycle tiers
+  - AWS Glue schema registry for stream contracts
+  - Optional world-brain provider secret placeholders in Secrets Manager
 
 Root module responsibilities:
 

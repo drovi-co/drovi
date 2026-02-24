@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -17,6 +17,16 @@ from src.kernel.time import utc_now
 
 logger = structlog.get_logger()
 
+COGNITIVE_HASH_SPECS: tuple[tuple[str, str, str], ...] = (
+    ("observation", "observation_hash", "created_at"),
+    ("belief", "belief_hash", "created_at"),
+    ("hypothesis", "hypothesis_hash", "created_at"),
+    ("cognitive_constraint", "constraint_hash", "created_at"),
+    ("impact_edge", "impact_hash", "created_at"),
+    ("intervention_plan", "intervention_hash", "created_at"),
+    ("realized_outcome", "outcome_hash", "created_at"),
+)
+
 
 @dataclass
 class CustodyDailyRootStats:
@@ -24,6 +34,8 @@ class CustodyDailyRootStats:
     root_date: str
     artifact_count: int = 0
     event_count: int = 0
+    cognitive_count: int = 0
+    cognitive_family_counts: dict[str, int] = field(default_factory=dict)
     leaf_count: int = 0
     merkle_root: str = ""
     signed_root: str = ""
@@ -53,10 +65,12 @@ async def _load_daily_hashes(
     *,
     organization_id: str,
     root_date: date,
-) -> tuple[list[str], int, int]:
+) -> tuple[list[str], int, int, int, dict[str, int]]:
     leaves: list[str] = []
     artifact_count = 0
     event_count = 0
+    cognitive_count = 0
+    cognitive_family_counts: dict[str, int] = {}
 
     async with get_db_session() as session:
         artifact_rows = await session.execute(
@@ -95,7 +109,32 @@ async def _load_daily_hashes(
                 leaves.append(f"event:{value}")
                 event_count += 1
 
-    return leaves, artifact_count, event_count
+        for table_name, hash_column, time_column in COGNITIVE_HASH_SPECS:
+            hash_rows = await session.execute(
+                text(
+                    f"""
+                    SELECT {hash_column} AS hash_value
+                    FROM {table_name}
+                    WHERE organization_id = :org_id
+                      AND DATE({time_column} AT TIME ZONE 'UTC') = :root_date
+                      AND {hash_column} IS NOT NULL
+                    """
+                ),
+                {"org_id": organization_id, "root_date": root_date},
+            )
+
+            table_count = 0
+            for row in hash_rows.fetchall():
+                value = str(row.hash_value or "").strip()
+                if value:
+                    leaves.append(f"cognitive:{table_name}:{value}")
+                    cognitive_count += 1
+                    table_count += 1
+
+            if table_count:
+                cognitive_family_counts[table_name] = table_count
+
+    return leaves, artifact_count, event_count, cognitive_count, cognitive_family_counts
 
 
 class CustodyIntegrityJob:
@@ -111,7 +150,13 @@ class CustodyIntegrityJob:
         target_date = root_date or _default_root_date(now)
         secret, key_id = _resolve_signing_secret()
 
-        leaves, artifact_count, event_count = await _load_daily_hashes(
+        (
+            leaves,
+            artifact_count,
+            event_count,
+            cognitive_count,
+            cognitive_family_counts,
+        ) = await _load_daily_hashes(
             organization_id=organization_id,
             root_date=target_date,
         )
@@ -129,6 +174,8 @@ class CustodyIntegrityJob:
             root_date=target_date.isoformat(),
             artifact_count=artifact_count,
             event_count=event_count,
+            cognitive_count=cognitive_count,
+            cognitive_family_counts=cognitive_family_counts,
             leaf_count=len(leaves),
             merkle_root=root,
             signed_root=signature,
@@ -172,7 +219,13 @@ class CustodyIntegrityJob:
                     "metadata": json.dumps(
                         {
                             "generated_at": stats.created_at,
-                            "sources": ["evidence_artifact.sha256", "unified_event.content_hash"],
+                            "sources": [
+                                "evidence_artifact.sha256",
+                                "unified_event.content_hash",
+                                *[f"{table}.{hash_column}" for table, hash_column, _ in COGNITIVE_HASH_SPECS],
+                            ],
+                            "cognitive_count": stats.cognitive_count,
+                            "cognitive_family_counts": stats.cognitive_family_counts,
                         }
                     ),
                     "created_at": now,
@@ -185,6 +238,7 @@ class CustodyIntegrityJob:
             root_date=stats.root_date,
             artifact_count=stats.artifact_count,
             event_count=stats.event_count,
+            cognitive_count=stats.cognitive_count,
             leaf_count=stats.leaf_count,
         )
         return stats.__dict__

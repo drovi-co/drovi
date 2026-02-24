@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 
 interface HeroProps {
   onRequestAccess?: () => void;
@@ -46,6 +47,21 @@ export function Hero({ onRequestAccess, onWatchDemo }: HeroProps) {
               promised. What's still owed.
             </p>
           </div>
+
+          {/* World Brain CTA */}
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.55, delay: 0.14 }}
+          >
+            <Link
+              className="inline-flex items-center gap-2 rounded-[80px] border border-white/20 bg-[rgba(255,255,255,0.08)] px-5 py-2.5 text-[13px] text-white/92 tracking-[-0.28px] backdrop-blur-[4px] transition-colors hover:bg-[rgba(255,255,255,0.14)] md:text-[14px]"
+              href="/world-brain"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
+              Explore World Brain
+            </Link>
+          </motion.div>
 
           {/* CTAs */}
           <motion.div

@@ -47,6 +47,12 @@ function createCoreShellModule(): DroviModule {
         path: "/dashboard/reality-stream",
         slot: "dashboard",
       },
+      {
+        id: "core.world_brain",
+        path: "/dashboard/world-brain",
+        slot: "dashboard",
+        featureFlag: "world_brain",
+      },
       { id: "core.graph", path: "/dashboard/graph", slot: "dashboard" },
       {
         id: "core.commitments",
@@ -95,6 +101,15 @@ function createCoreShellModule(): DroviModule {
         group: "console",
         order: 20,
         requiresCapability: "core.workspace.read",
+      },
+      {
+        id: "core.world_brain",
+        label: "World Brain",
+        to: "/dashboard/world-brain",
+        icon: "sparkles",
+        group: "console",
+        order: 25,
+        requiresCapability: "world.brain.read",
       },
       {
         id: "core.graph",

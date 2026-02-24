@@ -31,6 +31,9 @@ class ChangeRecord:
     timestamp: datetime
     changed_by: str | None = None
     change_reason: str | None = None
+    cognitive_layer: str | None = None
+    trace_id: str | None = None
+    confidence: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -43,6 +46,9 @@ class ChangeRecord:
             "timestamp": self.timestamp.isoformat(),
             "changed_by": self.changed_by,
             "change_reason": self.change_reason,
+            "cognitive_layer": self.cognitive_layer,
+            "trace_id": self.trace_id,
+            "confidence": self.confidence,
         }
 
 
@@ -137,6 +143,40 @@ class ChangeTracker:
             version=version.version,
         )
 
+        return record
+
+    async def track_cognitive_change(
+        self,
+        *,
+        entity_id: str,
+        entity_type: str,
+        cognitive_layer: str,
+        new_data: dict[str, Any],
+        changed_by: str | None = None,
+        change_reason: str | None = None,
+        trace_id: str | None = None,
+        confidence: float | None = None,
+    ) -> ChangeRecord:
+        """
+        Track a change emitted by one of the world-brain memory layers.
+        """
+        payload = dict(new_data)
+        payload["_cognitive_layer"] = cognitive_layer
+        if trace_id:
+            payload["_trace_id"] = trace_id
+        if confidence is not None:
+            payload["_confidence"] = float(confidence)
+
+        record = await self.track_change(
+            entity_id=entity_id,
+            entity_type=entity_type,
+            new_data=payload,
+            changed_by=changed_by,
+            change_reason=change_reason,
+        )
+        record.cognitive_layer = cognitive_layer
+        record.trace_id = trace_id
+        record.confidence = confidence
         return record
 
     async def get_changes_since(
@@ -467,6 +507,49 @@ class ChangeTracker:
             result[entity_type].append(row["entity_id"])
 
         return result
+
+    async def get_cognitive_changes_since(
+        self,
+        *,
+        organization_id: str,
+        since: datetime,
+        cognitive_layer: str,
+        limit: int = 100,
+    ) -> list[ChangeRecord]:
+        """Fetch changes tagged for one cognitive layer."""
+        all_changes = await self.get_changes_since(
+            organization_id=organization_id,
+            since=since,
+            entity_types=None,
+            limit=limit,
+        )
+
+        normalized_target = cognitive_layer.strip().lower()
+        results: list[ChangeRecord] = []
+        for record in all_changes:
+            if record.cognitive_layer and record.cognitive_layer.lower() == normalized_target:
+                results.append(record)
+                continue
+
+            if not record.diff:
+                continue
+
+            change_map = {change.field_name: change for change in record.diff.changes}
+            layer_change = change_map.get("_cognitive_layer")
+            layer_value = str(layer_change.new_value or "").lower() if layer_change else ""
+            if layer_value != normalized_target:
+                continue
+
+            record.cognitive_layer = layer_value
+            trace_change = change_map.get("_trace_id")
+            if trace_change and trace_change.new_value is not None:
+                record.trace_id = str(trace_change.new_value)
+            confidence_change = change_map.get("_confidence")
+            if confidence_change and isinstance(confidence_change.new_value, (float, int)):
+                record.confidence = float(confidence_change.new_value)
+            results.append(record)
+
+        return results
 
 
 async def get_change_tracker() -> ChangeTracker:
