@@ -116,7 +116,7 @@ data:
   TEMPORAL_NAMESPACE: "default"
   TEMPORAL_TASK_QUEUE: "drovi-workflows"
 
-  NATS_URL: "nats://nats:4222"
+  NATS_URL: "nats://nats-0.nats:4222"
   IMPERIUM_HOST: "0.0.0.0"
   IMPERIUM_PORT: "8010"
   IMPERIUM_REDIS_NAMESPACE: "imperium"

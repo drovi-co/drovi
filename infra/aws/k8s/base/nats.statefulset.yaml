@@ -5,6 +5,7 @@ metadata:
   namespace: drovi
 spec:
   clusterIP: None
+  publishNotReadyAddresses: true
   selector:
     app: nats
   ports:
