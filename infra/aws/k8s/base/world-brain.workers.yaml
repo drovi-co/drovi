@@ -44,6 +44,11 @@ spec:
             - secretRef:
                 name: drovi-secrets
           env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: drovi-secrets
+                  key: DROVI_DATABASE_URL
             - name: KAFKA_CONSUMER_GROUP_ID
               value: "drovi-world-normalize-worker"
             - name: KAFKA_TOPIC_PRIORITIES
@@ -88,6 +93,11 @@ spec:
             - secretRef:
                 name: drovi-secrets
           env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: drovi-secrets
+                  key: DROVI_DATABASE_URL
             - name: KAFKA_CONSUMER_GROUP_ID
               value: "drovi-world-graph-worker"
             - name: KAFKA_TOPIC_PRIORITIES
