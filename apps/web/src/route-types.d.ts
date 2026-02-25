@@ -242,6 +242,41 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: any;
       parentRoute: any;
     };
+    "/dashboard/world-brain/overview": {
+      id: "/dashboard/world-brain/overview";
+      path: "/world-brain/overview";
+      fullPath: "/dashboard/world-brain/overview";
+      preLoaderRoute: any;
+      parentRoute: any;
+    };
+    "/dashboard/world-brain/sources": {
+      id: "/dashboard/world-brain/sources";
+      path: "/world-brain/sources";
+      fullPath: "/dashboard/world-brain/sources";
+      preLoaderRoute: any;
+      parentRoute: any;
+    };
+    "/dashboard/world-brain/tape": {
+      id: "/dashboard/world-brain/tape";
+      path: "/world-brain/tape";
+      fullPath: "/dashboard/world-brain/tape";
+      preLoaderRoute: any;
+      parentRoute: any;
+    };
+    "/dashboard/world-brain/obligations": {
+      id: "/dashboard/world-brain/obligations";
+      path: "/world-brain/obligations";
+      fullPath: "/dashboard/world-brain/obligations";
+      preLoaderRoute: any;
+      parentRoute: any;
+    };
+    "/dashboard/world-brain/counterfactuals": {
+      id: "/dashboard/world-brain/counterfactuals";
+      path: "/world-brain/counterfactuals";
+      fullPath: "/dashboard/world-brain/counterfactuals";
+      preLoaderRoute: any;
+      parentRoute: any;
+    };
     "/dashboard/schedule": {
       id: "/dashboard/schedule";
       path: "/schedule";

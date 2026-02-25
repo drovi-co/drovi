@@ -38,7 +38,12 @@ import { Route as DashboardTeamMembersRouteImport } from "./routes/dashboard/tea
 import { Route as DashboardTeamSettingsRouteImport } from "./routes/dashboard/team/settings";
 import { Route as DashboardTrustRouteImport } from "./routes/dashboard/trust";
 import { Route as DashboardUioUioIdRouteImport } from "./routes/dashboard/uio/$uioId";
+import { Route as DashboardWorldBrainCounterfactualsRouteImport } from "./routes/dashboard/world-brain/counterfactuals";
 import { Route as DashboardWorldBrainIndexRouteImport } from "./routes/dashboard/world-brain/index";
+import { Route as DashboardWorldBrainObligationsRouteImport } from "./routes/dashboard/world-brain/obligations";
+import { Route as DashboardWorldBrainOverviewRouteImport } from "./routes/dashboard/world-brain/overview";
+import { Route as DashboardWorldBrainSourcesRouteImport } from "./routes/dashboard/world-brain/sources";
+import { Route as DashboardWorldBrainTapeRouteImport } from "./routes/dashboard/world-brain/tape";
 import { Route as ForgotPasswordRouteImport } from "./routes/forgot-password";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as LoginRouteImport } from "./routes/login";
@@ -226,6 +231,35 @@ const DashboardWorldBrainIndexRoute =
     path: "/world-brain/",
     getParentRoute: () => DashboardRouteRoute,
   } as any);
+const DashboardWorldBrainOverviewRoute =
+  DashboardWorldBrainOverviewRouteImport.update({
+    id: "/world-brain/overview",
+    path: "/world-brain/overview",
+    getParentRoute: () => DashboardRouteRoute,
+  } as any);
+const DashboardWorldBrainSourcesRoute =
+  DashboardWorldBrainSourcesRouteImport.update({
+    id: "/world-brain/sources",
+    path: "/world-brain/sources",
+    getParentRoute: () => DashboardRouteRoute,
+  } as any);
+const DashboardWorldBrainTapeRoute = DashboardWorldBrainTapeRouteImport.update({
+  id: "/world-brain/tape",
+  path: "/world-brain/tape",
+  getParentRoute: () => DashboardRouteRoute,
+} as any);
+const DashboardWorldBrainObligationsRoute =
+  DashboardWorldBrainObligationsRouteImport.update({
+    id: "/world-brain/obligations",
+    path: "/world-brain/obligations",
+    getParentRoute: () => DashboardRouteRoute,
+  } as any);
+const DashboardWorldBrainCounterfactualsRoute =
+  DashboardWorldBrainCounterfactualsRouteImport.update({
+    id: "/world-brain/counterfactuals",
+    path: "/world-brain/counterfactuals",
+    getParentRoute: () => DashboardRouteRoute,
+  } as any);
 const DashboardPatternsIndexRoute = DashboardPatternsIndexRouteImport.update({
   id: "/patterns/",
   path: "/patterns/",
@@ -321,6 +355,11 @@ const DashboardRouteRouteWithChildren = DashboardRouteRoute.addChildren([
   DashboardSimulationsIndexRoute,
   DashboardRealityStreamIndexRoute,
   DashboardWorldBrainIndexRoute,
+  DashboardWorldBrainOverviewRoute,
+  DashboardWorldBrainSourcesRoute,
+  DashboardWorldBrainTapeRoute,
+  DashboardWorldBrainObligationsRoute,
+  DashboardWorldBrainCounterfactualsRoute,
   DashboardPatternsIndexRoute,
   DashboardGraphIndexRoute,
   DashboardDecisionsIndexRoute,

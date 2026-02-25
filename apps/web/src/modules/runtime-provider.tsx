@@ -45,7 +45,7 @@ interface WebRuntimeContextValue {
 }
 
 const DEFAULT_RUNTIME_MODULES = resolveWebModules({
-  enabledCapabilities: { "world.brain.read": false },
+  enabledCapabilities: { "world.brain.read": true },
 });
 
 const DEFAULT_CONTEXT_VALUE: WebRuntimeContextValue = {
@@ -163,7 +163,7 @@ function evaluateWorldBrainAccessPolicy(
 ): boolean {
   const policy = parseWorldBrainRolloutPolicy(manifest);
   if (!policy) {
-    return false;
+    return true;
   }
   if (policy.enabled === false) {
     return false;

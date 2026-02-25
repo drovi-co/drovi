@@ -49,8 +49,70 @@ import { useAuthStore } from "@/lib/auth";
 import { useWebRuntime } from "@/modules/runtime-provider";
 
 export const Route = createFileRoute("/dashboard/world-brain/")({
-  component: WorldBrainLandingPage,
+  component: WorldBrainIndexRedirect,
 });
+
+export type WorldBrainPanel =
+  | "overview"
+  | "sources"
+  | "tape"
+  | "obligations"
+  | "counterfactuals";
+
+const WORLD_BRAIN_PANEL_NAV: Array<{
+  id: WorldBrainPanel;
+  label: string;
+  to: string;
+}> = [
+  { id: "overview", label: "Overview", to: "/dashboard/world-brain/overview" },
+  { id: "sources", label: "Source Ops", to: "/dashboard/world-brain/sources" },
+  { id: "tape", label: "Ledger Tape", to: "/dashboard/world-brain/tape" },
+  {
+    id: "obligations",
+    label: "Obligations",
+    to: "/dashboard/world-brain/obligations",
+  },
+  {
+    id: "counterfactuals",
+    label: "Counterfactual Lab",
+    to: "/dashboard/world-brain/counterfactuals",
+  },
+];
+
+const WORLD_BRAIN_PANEL_META: Record<
+  WorldBrainPanel,
+  { title: string; description: string }
+> = {
+  overview: {
+    title: "World Brain Control Room",
+    description:
+      "Cross-domain posture across source health, tape deltas, obligations, and counterfactual simulations.",
+  },
+  sources: {
+    title: "World Brain Source Operations",
+    description:
+      "Operator controls, history, and connector health telemetry for continual world-signal ingest.",
+  },
+  tape: {
+    title: "World Brain Ledger Tape",
+    description:
+      "Reality scrubber, lane transitions, impact bridges, and proof-backed deltas in one timeline surface.",
+  },
+  obligations: {
+    title: "World Brain Obligation Sentinel",
+    description:
+      "Pre-breach and post-breach signals with deterministic triage and governed feedback loops.",
+  },
+  counterfactuals: {
+    title: "World Brain Counterfactual Lab",
+    description:
+      "Scenario A/B comparison, risk and utility deltas, plus rollback-readiness previews.",
+  },
+};
+
+function WorldBrainIndexRedirect() {
+  return <Navigate replace to="/dashboard/world-brain/overview" />;
+}
 
 function parseEventTime(value: string | null | undefined): number | null {
   if (!value) {
@@ -316,7 +378,9 @@ function parseOptionalJsonObject(raw: string): Record<string, unknown> | null {
   return parsed as Record<string, unknown>;
 }
 
-function WorldBrainLandingPage() {
+export function WorldBrainLandingPage({
+  panel = "overview",
+}: { panel?: WorldBrainPanel }) {
   const { data: activeOrg, isPending: orgLoading } =
     authClient.useActiveOrganization();
   const organizationId = activeOrg?.id ?? "";
@@ -324,6 +388,13 @@ function WorldBrainLandingPage() {
   const runtime = useWebRuntime();
   const runtimeBootstrapping = runtime.manifest === null && runtime.error === null;
   const worldBrainEnabled = runtime.capabilities["world.brain.read"] !== false;
+  const panelMeta = WORLD_BRAIN_PANEL_META[panel];
+  const isOverviewPanel = panel === "overview";
+  const showSourcePanel = isOverviewPanel || panel === "sources";
+  const showTapePanel = isOverviewPanel || panel === "tape";
+  const showObligationPanel = isOverviewPanel || panel === "obligations";
+  const showCounterfactualPanel = isOverviewPanel || panel === "counterfactuals";
+  const showFeedbackPanel = isOverviewPanel || panel === "obligations";
   const [scrubHoursAgo, setScrubHoursAgo] = useState(0);
   const scrubAnchorRef = useRef<number>(Date.now());
   const [proofOpen, setProofOpen] = useState(false);
@@ -1058,7 +1129,35 @@ function WorldBrainLandingPage() {
   }
 
   if (!worldBrainEnabled) {
-    return <Navigate replace to="/dashboard/console" />;
+    return (
+      <div className="flex h-full flex-col gap-6 p-6" data-no-shell-padding>
+        <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-card via-card to-card/65 px-6 py-6">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-ring/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-12 left-4 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
+          <div className="relative space-y-4">
+            <div className="flex items-center gap-2">
+              <BrainCircuit className="h-4 w-4 text-ring" />
+              <span className="old-money-kicker">Institutional Cognition</span>
+              <Badge variant="outline">Access controlled</Badge>
+            </div>
+            <div className="space-y-1">
+              <h1 className="font-serif text-3xl leading-tight">World Brain</h1>
+              <p className="max-w-3xl text-muted-foreground text-sm">
+                World Brain access is disabled by runtime policy for this organization or role.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild size="sm" variant="outline">
+                <Link to="/dashboard/console">Return to Console</Link>
+              </Button>
+              <Button asChild size="sm" variant="ghost">
+                <Link to="/dashboard/settings">Review runtime policy</Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
   }
 
   const hasError =
@@ -1084,13 +1183,22 @@ function WorldBrainLandingPage() {
             <Badge variant={metrics.freshness.variant}>{metrics.freshness.label}</Badge>
           </div>
           <div className="space-y-1">
-            <h1 className="font-serif text-3xl leading-tight">
-              World Brain Control Room
-            </h1>
+            <h1 className="font-serif text-3xl leading-tight">{panelMeta.title}</h1>
             <p className="max-w-3xl text-muted-foreground text-sm">
-              A tenant-scoped posture view of freshness, drift pressure, and
-              breach-risk alerts across internal and external reality lanes.
+              {panelMeta.description}
             </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {WORLD_BRAIN_PANEL_NAV.map((entry) => (
+              <Button
+                asChild
+                key={entry.id}
+                size="sm"
+                variant={panel === entry.id ? "secondary" : "ghost"}
+              >
+                <Link to={entry.to}>{entry.label}</Link>
+              </Button>
+            ))}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild size="sm" variant="default">
@@ -1143,7 +1251,8 @@ function WorldBrainLandingPage() {
         />
       ) : null}
 
-      <section className="grid gap-4 lg:grid-cols-3">
+      {showSourcePanel ? (
+        <section className="grid gap-4 lg:grid-cols-3">
         <Card variant="dossier">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2 text-xs uppercase tracking-wide">
@@ -1526,9 +1635,11 @@ function WorldBrainLandingPage() {
             </CardContent>
           </Card>
         </div>
-      </section>
+        </section>
+      ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+      {showTapePanel ? (
+        <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
         <Card variant="dossier">
           <CardHeader>
             <CardTitle className="text-base">Live lane coverage</CardTitle>
@@ -1578,9 +1689,11 @@ function WorldBrainLandingPage() {
             ) : null}
           </CardContent>
         </Card>
-      </section>
+        </section>
+      ) : null}
 
-      <section className="space-y-4" data-testid="source-health-console">
+      {showSourcePanel ? (
+        <section className="space-y-4" data-testid="source-health-console">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 className="font-serif text-xl">Source Health Console</h2>
@@ -1666,9 +1779,11 @@ function WorldBrainLandingPage() {
             </div>
           </CardContent>
         </Card>
-      </section>
+        </section>
+      ) : null}
 
-      <section className="space-y-4">
+      {showTapePanel ? (
+        <section className="space-y-4">
         <Card variant="dossier">
           <CardHeader>
             <CardTitle className="text-base">Reality Scrubber</CardTitle>
@@ -1757,9 +1872,11 @@ function WorldBrainLandingPage() {
             )}
           </CardContent>
         </Card>
-      </section>
+        </section>
+      ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_1.4fr]">
+      {showTapePanel ? (
+        <section className="grid gap-4 xl:grid-cols-[1fr_1.4fr]">
         <DriftMeter
           confidence={metrics.averageConfidence}
           driftPercent={metrics.driftPercent}
@@ -1791,9 +1908,11 @@ function WorldBrainLandingPage() {
             )}
           </CardContent>
         </Card>
-      </section>
+        </section>
+      ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
+      {showObligationPanel ? (
+        <section className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
         <Card variant="dossier">
           <CardHeader>
             <CardTitle className="text-base">Obligation Sentinel</CardTitle>
@@ -1933,12 +2052,14 @@ function WorldBrainLandingPage() {
             )}
           </CardContent>
         </Card>
-      </section>
+        </section>
+      ) : null}
 
-      <section
-        className="grid gap-4 xl:grid-cols-[1.2fr_1fr]"
-        data-testid="counterfactual-lab"
-      >
+      {showCounterfactualPanel ? (
+        <section
+          className="grid gap-4 xl:grid-cols-[1.2fr_1fr]"
+          data-testid="counterfactual-lab"
+        >
         <Card variant="dossier">
           <CardHeader>
             <CardTitle className="text-base">Counterfactual Lab</CardTitle>
@@ -2137,177 +2258,182 @@ function WorldBrainLandingPage() {
             )}
           </CardContent>
         </Card>
-      </section>
+        </section>
+      ) : null}
 
-      <Card variant="dossier">
-        <CardHeader>
-          <CardTitle className="text-base">Latest cognition deltas</CardTitle>
-          <CardDescription>
-            Highest-signal transitions from the Ledger Tape.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {isLoading ? (
-            <Skeleton className="h-56" />
-          ) : sortedEvents.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border/70 p-5 text-center text-muted-foreground text-sm">
-              No deltas available for this organization yet.
-            </div>
-          ) : (
-            sortedEvents.map((event) => (
-              <TapeEventRow
-                event={event}
-                key={event.event_id}
-                onOpenProof={openProofBundle}
-              />
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      <Card variant="dossier" data-testid="signal-feedback-card">
-        <CardHeader>
-          <CardTitle className="text-base">Signal Feedback Loop</CardTitle>
-          <CardDescription>
-            Capture false-positive/false-negative judgments and correction labels into the learning pipeline.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {sortedEvents.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border/70 p-4 text-muted-foreground text-sm">
-              No tape events available for feedback yet.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <label
-                  className="font-medium text-xs uppercase tracking-wide"
-                  htmlFor="signal-feedback-event"
-                >
-                  Tape event
-                </label>
-                <select
-                  className="w-full rounded-md border border-border/70 bg-card px-3 py-2 text-sm"
-                  data-testid="signal-feedback-event-select"
-                  id="signal-feedback-event"
-                  onChange={(event) => setSelectedFeedbackEventId(event.target.value)}
-                  value={selectedFeedbackEvent?.event_id ?? ""}
-                >
-                  {sortedEvents.map((event) => (
-                    <option key={event.event_id} value={event.event_id}>
-                      {event.event_id}: {event.summary}
-                    </option>
-                  ))}
-                </select>
+      {showTapePanel ? (
+        <Card variant="dossier">
+          <CardHeader>
+            <CardTitle className="text-base">Latest cognition deltas</CardTitle>
+            <CardDescription>
+              Highest-signal transitions from the Ledger Tape.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {isLoading ? (
+              <Skeleton className="h-56" />
+            ) : sortedEvents.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border/70 p-5 text-center text-muted-foreground text-sm">
+                No deltas available for this organization yet.
               </div>
+            ) : (
+              sortedEvents.map((event) => (
+                <TapeEventRow
+                  event={event}
+                  key={event.event_id}
+                  onOpenProof={openProofBundle}
+                />
+              ))
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
-              <div className="grid gap-3 md:grid-cols-2">
+      {showFeedbackPanel ? (
+        <Card variant="dossier" data-testid="signal-feedback-card">
+          <CardHeader>
+            <CardTitle className="text-base">Signal Feedback Loop</CardTitle>
+            <CardDescription>
+              Capture false-positive/false-negative judgments and correction labels into the learning pipeline.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {sortedEvents.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border/70 p-4 text-muted-foreground text-sm">
+                No tape events available for feedback yet.
+              </div>
+            ) : (
+              <div className="space-y-3">
                 <div className="space-y-2">
                   <label
                     className="font-medium text-xs uppercase tracking-wide"
-                    htmlFor="signal-feedback-verdict"
+                    htmlFor="signal-feedback-event"
                   >
-                    Verdict
+                    Tape event
                   </label>
                   <select
                     className="w-full rounded-md border border-border/70 bg-card px-3 py-2 text-sm"
-                    data-testid="signal-feedback-verdict"
-                    id="signal-feedback-verdict"
-                    onChange={(event) =>
-                      setFeedbackVerdict(
-                        event.target.value as
-                          | "false_positive"
-                          | "false_negative"
-                          | "confirmed"
-                      )
-                    }
-                    value={feedbackVerdict}
+                    data-testid="signal-feedback-event-select"
+                    id="signal-feedback-event"
+                    onChange={(event) => setSelectedFeedbackEventId(event.target.value)}
+                    value={selectedFeedbackEvent?.event_id ?? ""}
                   >
-                    <option value="false_positive">false_positive</option>
-                    <option value="false_negative">false_negative</option>
-                    <option value="confirmed">confirmed</option>
+                    {sortedEvents.map((event) => (
+                      <option key={event.event_id} value={event.event_id}>
+                        {event.event_id}: {event.summary}
+                      </option>
+                    ))}
                   </select>
                 </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label
+                      className="font-medium text-xs uppercase tracking-wide"
+                      htmlFor="signal-feedback-verdict"
+                    >
+                      Verdict
+                    </label>
+                    <select
+                      className="w-full rounded-md border border-border/70 bg-card px-3 py-2 text-sm"
+                      data-testid="signal-feedback-verdict"
+                      id="signal-feedback-verdict"
+                      onChange={(event) =>
+                        setFeedbackVerdict(
+                          event.target.value as
+                            | "false_positive"
+                            | "false_negative"
+                            | "confirmed"
+                        )
+                      }
+                      value={feedbackVerdict}
+                    >
+                      <option value="false_positive">false_positive</option>
+                      <option value="false_negative">false_negative</option>
+                      <option value="confirmed">confirmed</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label
+                      className="font-medium text-xs uppercase tracking-wide"
+                      htmlFor="signal-feedback-correction"
+                    >
+                      Correction label
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-border/70 bg-card px-3 py-2 text-sm"
+                      data-testid="signal-feedback-correction-label"
+                      id="signal-feedback-correction"
+                      onChange={(event) => setFeedbackCorrectionLabel(event.target.value)}
+                      type="text"
+                      value={feedbackCorrectionLabel}
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <label
                     className="font-medium text-xs uppercase tracking-wide"
-                    htmlFor="signal-feedback-correction"
+                    htmlFor="signal-feedback-notes"
                   >
-                    Correction label
+                    Notes
                   </label>
-                  <input
-                    className="w-full rounded-md border border-border/70 bg-card px-3 py-2 text-sm"
-                    data-testid="signal-feedback-correction-label"
-                    id="signal-feedback-correction"
-                    onChange={(event) => setFeedbackCorrectionLabel(event.target.value)}
-                    type="text"
-                    value={feedbackCorrectionLabel}
+                  <textarea
+                    className="min-h-[80px] w-full rounded-md border border-border/70 bg-card px-3 py-2 text-sm"
+                    data-testid="signal-feedback-notes"
+                    id="signal-feedback-notes"
+                    onChange={(event) => setFeedbackNotes(event.target.value)}
+                    value={feedbackNotes}
                   />
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label
-                  className="font-medium text-xs uppercase tracking-wide"
-                  htmlFor="signal-feedback-notes"
+                {!canSubmitFeedback ? (
+                  <div className="rounded-md border border-border/70 bg-card/45 px-3 py-2 text-muted-foreground text-xs">
+                    Viewer role is read-only. Feedback submission requires member/admin/owner.
+                  </div>
+                ) : null}
+
+                <Button
+                  data-testid="submit-signal-feedback"
+                  disabled={
+                    !canSubmitFeedback ||
+                    feedbackMutation.isPending ||
+                    !selectedFeedbackEvent?.event_id
+                  }
+                  onClick={runSubmitSignalFeedback}
+                  size="sm"
+                  variant="default"
                 >
-                  Notes
-                </label>
-                <textarea
-                  className="min-h-[80px] w-full rounded-md border border-border/70 bg-card px-3 py-2 text-sm"
-                  data-testid="signal-feedback-notes"
-                  id="signal-feedback-notes"
-                  onChange={(event) => setFeedbackNotes(event.target.value)}
-                  value={feedbackNotes}
-                />
+                  {feedbackMutation.isPending ? "Submitting..." : "Submit feedback"}
+                </Button>
               </div>
+            )}
 
-              {!canSubmitFeedback ? (
-                <div className="rounded-md border border-border/70 bg-card/45 px-3 py-2 text-muted-foreground text-xs">
-                  Viewer role is read-only. Feedback submission requires member/admin/owner.
-                </div>
-              ) : null}
+            {feedbackMutation.isError ? (
+              <ApiErrorPanel
+                error={feedbackMutation.error}
+                onRetry={runSubmitSignalFeedback}
+              />
+            ) : null}
 
-              <Button
-                data-testid="submit-signal-feedback"
-                disabled={
-                  !canSubmitFeedback ||
-                  feedbackMutation.isPending ||
-                  !selectedFeedbackEvent?.event_id
-                }
-                onClick={runSubmitSignalFeedback}
-                size="sm"
-                variant="default"
+            {latestFeedbackResult ? (
+              <div
+                className="rounded-lg border border-border/70 bg-card/45 px-3 py-2"
+                data-testid="signal-feedback-result"
               >
-                {feedbackMutation.isPending ? "Submitting..." : "Submit feedback"}
-              </Button>
-            </div>
-          )}
-
-          {feedbackMutation.isError ? (
-            <ApiErrorPanel
-              error={feedbackMutation.error}
-              onRetry={runSubmitSignalFeedback}
-            />
-          ) : null}
-
-          {latestFeedbackResult ? (
-            <div
-              className="rounded-lg border border-border/70 bg-card/45 px-3 py-2"
-              data-testid="signal-feedback-result"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-medium text-sm">{latestFeedbackResult.realized_outcome_id}</p>
-                <Badge variant="outline">{latestFeedbackResult.outcome_type}</Badge>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-medium text-sm">{latestFeedbackResult.realized_outcome_id}</p>
+                  <Badge variant="outline">{latestFeedbackResult.outcome_type}</Badge>
+                </div>
+                <p className="mt-1 text-muted-foreground text-xs">
+                  captured {formatDistanceToNowStrict(new Date(latestFeedbackResult.measured_at), { addSuffix: true })}
+                </p>
+                <p className="text-muted-foreground text-xs">{latestFeedbackResult.outcome_hash}</p>
               </div>
-              <p className="mt-1 text-muted-foreground text-xs">
-                captured {formatDistanceToNowStrict(new Date(latestFeedbackResult.measured_at), { addSuffix: true })}
-              </p>
-              <p className="text-muted-foreground text-xs">{latestFeedbackResult.outcome_hash}</p>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Sheet
         onOpenChange={(open) => {

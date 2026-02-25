@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { ComponentType, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const worldBrainApiMock = {
@@ -484,10 +484,7 @@ describe("World Brain route", () => {
     });
 
     const module = await import("./index");
-    const Component = (
-      module.Route as unknown as { options: { component: ComponentType } }
-    ).options.component;
-    renderWithQueryClient(<Component />);
+    renderWithQueryClient(<module.WorldBrainLandingPage panel="overview" />);
 
     expect(await screen.findByText("Ledger Tape Lanes")).toBeTruthy();
     expect(await screen.findByText("Internal lane")).toBeTruthy();
@@ -511,7 +508,7 @@ describe("World Brain route", () => {
     expect(await screen.findByText("Obligation Sentinel")).toBeTruthy();
     expect(await screen.findByText("Quarterly filing deadline")).toBeTruthy();
     expect(await screen.findByText("Disclosure policy breach")).toBeTruthy();
-    expect(await screen.findByText("Counterfactual Lab")).toBeTruthy();
+    expect((await screen.findAllByText("Counterfactual Lab")).length).toBeGreaterThan(0);
     const driftMeter = await screen.findByTestId("drift-meter");
     expect(driftMeter.getAttribute("data-severity-level")).toBeTruthy();
     expect(driftMeter.getAttribute("data-confidence-tier")).toBeTruthy();
@@ -665,19 +662,20 @@ describe("World Brain route", () => {
     });
   });
 
-  it("redirects to console when world brain capability is disabled", async () => {
+  it("shows access-controlled state when world brain capability is disabled", async () => {
     webRuntimeMock.useWebRuntime.mockReturnValue({
       capabilities: { "world.brain.read": false },
     });
 
     const module = await import("./index");
-    const Component = (
-      module.Route as unknown as { options: { component: ComponentType } }
-    ).options.component;
-    renderWithQueryClient(<Component />);
+    renderWithQueryClient(<module.WorldBrainLandingPage panel="overview" />);
 
-    const redirect = await screen.findByTestId("navigate");
-    expect(redirect.getAttribute("data-to")).toBe("/dashboard/console");
+    expect(await screen.findByText("World Brain")).toBeTruthy();
+    expect(
+      await screen.findByText(
+        "World Brain access is disabled by runtime policy for this organization or role."
+      )
+    ).toBeTruthy();
     expect(worldBrainApiMock.listTape).not.toHaveBeenCalled();
     expect(worldBrainApiMock.getTapeEvent).not.toHaveBeenCalled();
     expect(worldBrainApiMock.triageObligationSignal).not.toHaveBeenCalled();
@@ -782,10 +780,7 @@ describe("World Brain route", () => {
     });
 
     const module = await import("./index");
-    const Component = (
-      module.Route as unknown as { options: { component: ComponentType } }
-    ).options.component;
-    renderWithQueryClient(<Component />);
+    renderWithQueryClient(<module.WorldBrainLandingPage panel="overview" />);
 
     expect(await screen.findByText("Operator Controls")).toBeTruthy();
     expect(

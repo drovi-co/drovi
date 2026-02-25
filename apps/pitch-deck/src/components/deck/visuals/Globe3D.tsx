@@ -1,31 +1,30 @@
 "use client";
 import dynamic from "next/dynamic";
-
 import { cn } from "@/lib/utils";
 
-const World = dynamic(() => import("../ui/globe").then((m) => m.World), {
+const World = dynamic(() => import("@/components/ui/globe").then((m) => m.World), {
   ssr: false,
 });
 
-interface Globe3DProps {
+interface GlobeDemoProps {
   className?: string;
 }
 
-export default function GlobeDemo({ className }: Globe3DProps) {
+export default function GlobeDemo({ className }: GlobeDemoProps) {
   const globeConfig = {
     pointSize: 4,
-    globeColor: "#062056",
+    globeColor: "#0f261c",
     showAtmosphere: true,
-    atmosphereColor: "#FFFFFF",
+    atmosphereColor: "#f0dfbd",
     atmosphereAltitude: 0.1,
-    emissive: "#062056",
-    emissiveIntensity: 0.1,
+    emissive: "#0a1c15",
+    emissiveIntensity: 0.18,
     shininess: 0.9,
-    polygonColor: "rgba(255,255,255,0.7)",
-    ambientLight: "#38bdf8",
-    directionalLeftLight: "#ffffff",
-    directionalTopLight: "#ffffff",
-    pointLight: "#ffffff",
+    polygonColor: "rgba(214, 180, 120, 0.6)",
+    ambientLight: "#d4b478",
+    directionalLeftLight: "#f2e8d2",
+    directionalTopLight: "#e9d3a6",
+    pointLight: "#d4b478",
     arcTime: 1000,
     arcLength: 0.9,
     rings: 1,
@@ -34,7 +33,7 @@ export default function GlobeDemo({ className }: Globe3DProps) {
     autoRotate: true,
     autoRotateSpeed: 0.5,
   };
-  const colors = ["#06b6d4", "#3b82f6", "#6366f1"];
+  const colors = ["#d4b478", "#b99256", "#f1ddba"];
   const sampleArcs = [
     {
       order: 1,
@@ -399,8 +398,8 @@ export default function GlobeDemo({ className }: Globe3DProps) {
   ];
 
   return (
-    <div className={cn("w-full py-2", className)}>
-      <div className="mx-auto max-w-[430px]">
+    <div className={cn("mx-auto w-full max-w-[34rem] px-2 sm:px-4", className)}>
+      <div className="h-[18rem] sm:h-[22rem] md:h-[26rem]">
         <World data={sampleArcs} globeConfig={globeConfig} />
       </div>
     </div>

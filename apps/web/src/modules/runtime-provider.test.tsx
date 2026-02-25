@@ -58,8 +58,8 @@ describe("WebRuntimeProvider", () => {
       expect(screen.getByTestId("modules").textContent).toContain("mod-drive");
     });
     expect(screen.getByTestId("theme").textContent).toBe("institutional");
-    expect(screen.getByTestId("world-brain-route").textContent).toBe("false");
-    expect(screen.getByTestId("world-brain-nav").textContent).toBe("false");
+    expect(screen.getByTestId("world-brain-route").textContent).toBe("true");
+    expect(screen.getByTestId("world-brain-nav").textContent).toBe("true");
   });
 
   it("applies manifest-driven module gates, navigation and vocabulary", async () => {

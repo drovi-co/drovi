@@ -133,6 +133,22 @@ function getBreadcrumbs(
     return breadcrumbs;
   }
 
+  if (pathname.startsWith("/dashboard/world-brain/")) {
+    breadcrumbs.push({ label: "World Brain", href: "/dashboard/world-brain/overview" });
+    if (pathname === "/dashboard/world-brain/overview") {
+      breadcrumbs.push({ label: "Overview" });
+    } else if (pathname === "/dashboard/world-brain/sources") {
+      breadcrumbs.push({ label: "Source Ops" });
+    } else if (pathname === "/dashboard/world-brain/tape") {
+      breadcrumbs.push({ label: "Ledger Tape" });
+    } else if (pathname === "/dashboard/world-brain/obligations") {
+      breadcrumbs.push({ label: "Obligations" });
+    } else if (pathname === "/dashboard/world-brain/counterfactuals") {
+      breadcrumbs.push({ label: "Counterfactuals" });
+    }
+    return breadcrumbs;
+  }
+
   // Calendar section
   if (pathname === "/dashboard/schedule") {
     breadcrumbs.push({ label: t("nav.items.schedule") });
@@ -288,7 +304,7 @@ function DashboardLayout() {
   const t = useT();
   const navigate = useNavigate();
   const location = useLocation();
-  const { modules } = useWebRuntime();
+  const { modules, isLoading: runtimeLoading } = useWebRuntime();
   const breadcrumbs = getBreadcrumbs(location.pathname, t);
 
   const moduleRoutePolicy = useMemo(() => {
@@ -306,6 +322,7 @@ function DashboardLayout() {
   }, [modules]);
 
   if (
+    !runtimeLoading &&
     moduleRoutePolicy.known.has(location.pathname) &&
     !moduleRoutePolicy.allowed.has(location.pathname)
   ) {

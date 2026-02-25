@@ -67,7 +67,7 @@ describe("web module runtime resolution", () => {
     );
   });
 
-  it("keeps world brain route in the shell and gates nav by capability", () => {
+  it("registers world brain routes and nests child nav items behind capability gates", () => {
     const enabled = resolveWebModules({
       enabledCapabilities: {
         "world.brain.read": true,
@@ -86,10 +86,19 @@ describe("web module runtime resolution", () => {
       enabledCore?.routes.find((route) => route.id === "core.world_brain")
     ).toBeDefined();
     expect(
+      enabledCore?.routes.find((route) => route.id === "core.world_brain.overview")
+    ).toBeDefined();
+    expect(
       enabledCore?.navItems.find((item) => item.id === "core.world_brain")
     ).toBeDefined();
     expect(
+      enabledCore?.navItems.find((item) => item.id === "core.world_brain.tape")
+    ).toBeDefined();
+    expect(
       disabledCore?.navItems.find((item) => item.id === "core.world_brain")
+    ).toBeUndefined();
+    expect(
+      disabledCore?.navItems.find((item) => item.id === "core.world_brain.tape")
     ).toBeUndefined();
   });
 });
